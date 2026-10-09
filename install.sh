@@ -34,6 +34,25 @@ if ! mkdir "$lock" 2>/dev/null; then
   echo "Cannot create the installer lock: $lock" >&2
   exit 1
 fi
+# Print the download folder URL of the newest release that has the asset.
+# Stable releases come from the /releases/latest redirect. While only preview
+# releases exist GitHub answers 404 there, so fall back to the newest release.
+repository="AlexanderCGKarlsson/thumbtalk"
+resolve_base() {
+  local latest="https://github.com/$repository/releases/latest/download" tag
+  if curl --fail --silent --location --head --output /dev/null "$latest/$1.sha256"; then
+    echo "$latest"; return 0
+  fi
+  tag="$(curl --fail --silent --location -H 'User-Agent: ThumbTalk-installer' \
+    "https://api.github.com/repos/$repository/releases?per_page=30" 2>/dev/null \
+    | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n 1 | cut -d '"' -f 4)" || true
+  if [ -z "$tag" ]; then
+    echo "Could not find the latest ThumbTalk release. Check your internet connection and try again." >&2
+    echo "Releases: https://github.com/$repository/releases" >&2
+    return 1
+  fi
+  echo "https://github.com/$repository/releases/download/$tag"
+}
 stage=""
 cleanup() {
   if [ -n "$stage" ]; then rm -rf "$stage"; fi
@@ -49,8 +68,8 @@ fi
 mkdir -p "$prefix"
 stage="$(mktemp -d "$prefix/.install.XXXXXX")"
 if [ -z "$bundle" ]; then
-  base="https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.0"
   asset="thumbtalk-linux-x86_64.tar.gz"
+  base="$(resolve_base "$asset")"
   echo "Downloading ThumbTalk…"
   curl --fail --location --retry 3 "$base/$asset" -o "$stage/$asset"
   curl --fail --location --retry 3 "$base/$asset.sha256" -o "$stage/$asset.sha256"

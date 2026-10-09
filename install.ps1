@@ -6,6 +6,32 @@ param(
     [switch]$NoShortcuts
 )
 $ErrorActionPreference = "Stop"
+# Windows PowerShell 5.1 may default to old TLS versions that GitHub rejects.
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+$Repository = "AlexanderCGKarlsson/thumbtalk"
+
+# Returns the download folder URL of the newest release that has $Asset.
+# Stable releases come from the /releases/latest redirect. While only preview
+# releases exist GitHub answers 404 there, so fall back to the newest release.
+function Get-ReleaseBase([string]$Asset) {
+    $Latest = "https://github.com/$Repository/releases/latest/download"
+    try {
+        Invoke-WebRequest "$Latest/$Asset.sha256" -Method Head -UseBasicParsing | Out-Null
+        return $Latest
+    } catch { }
+    try {
+        $Releases = @(Invoke-RestMethod "https://api.github.com/repos/$Repository/releases?per_page=30" `
+            -Headers @{ "User-Agent" = "ThumbTalk-installer" } -UseBasicParsing)
+    } catch {
+        throw "Could not reach GitHub to find the latest ThumbTalk release. Check your internet connection and try again."
+    }
+    foreach ($Release in $Releases) {
+        if (-not $Release.draft -and (@($Release.assets | ForEach-Object { $_.name }) -contains $Asset)) {
+            return "https://github.com/$Repository/releases/download/$($Release.tag_name)"
+        }
+    }
+    throw "No ThumbTalk release with $Asset was found. See https://github.com/$Repository/releases"
+}
 if (-not [Environment]::Is64BitOperatingSystem) { throw "ThumbTalk requires 64-bit Windows." }
 if ((Test-Path $InstallDir) -and ((Get-Item $InstallDir).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
     throw "The install folder must not be a link."
@@ -21,8 +47,8 @@ $Previous = Join-Path $InstallDir "app.previous"
 $App = Join-Path $InstallDir "app"
 try {
     if (-not $Bundle) {
-        $Base = "https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.0"
         $Asset = "thumbtalk-windows-x86_64.zip"
+        $Base = Get-ReleaseBase $Asset
         Write-Host "Downloading ThumbTalk..."
         $Archive = Join-Path $Stage $Asset
         Invoke-WebRequest "$Base/$Asset" -OutFile $Archive -UseBasicParsing

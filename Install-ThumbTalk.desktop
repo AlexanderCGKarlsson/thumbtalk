@@ -4,4 +4,4 @@ Name=Install ThumbTalk
 Comment=Download and install ThumbTalk for your user account
 Terminal=true
 Icon=audio-input-microphone
-Exec=sh -c "installer=\$(mktemp); curl --fail --location https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.0/install.sh -o \"\$installer\" && bash \"\$installer\"; result=\$?; rm -f \"\$installer\"; if [ \$result -ne 0 ]; then printf 'Installation failed. Press Enter to close.'; read answer; fi; exit \$result"
+Exec=sh -c "installer=\$(mktemp); base=https://github.com/AlexanderCGKarlsson/thumbtalk/releases; { curl --fail --location \"\$base/latest/download/install.sh\" -o \"\$installer\" || { tag=\$(curl --fail --silent --location \"https://api.github.com/repos/AlexanderCGKarlsson/thumbtalk/releases?per_page=30\" | grep -o 'tag_name[^,]*' | head -n 1 | cut -d : -f 2 | tr -d '[:space:]\"') && [ -n \"\$tag\" ] && curl --fail --location \"\$base/download/\$tag/install.sh\" -o \"\$installer\"; }; } && bash \"\$installer\"; result=\$?; rm -f \"\$installer\"; if [ \$result -ne 0 ]; then printf 'Installation failed. Press Enter to close.'; read answer; fi; exit \$result"
