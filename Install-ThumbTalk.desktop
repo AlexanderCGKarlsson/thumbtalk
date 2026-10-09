@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Install ThumbTalk
+Comment=Download and install ThumbTalk for your user account
+Terminal=true
+Icon=audio-input-microphone
+Exec=sh -c "installer=\$(mktemp); curl --fail --location https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.0/install.sh -o \"\$installer\" && bash \"\$installer\"; result=\$?; rm -f \"\$installer\"; if [ \$result -ne 0 ]; then printf 'Installation failed. Press Enter to close.'; read answer; fi; exit \$result"

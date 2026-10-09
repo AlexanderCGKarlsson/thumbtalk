@@ -1,0 +1,2 @@
+The bundled xclip executable is the unmodified Ubuntu 22.04 xclip 0.13-2 amd64 package. Corresponding upstream source, Debian packaging patches/build instructions, package descriptor and GPL license are included here. Source archives: https://archive.ubuntu.com/ubuntu/pool/universe/x/xclip/
+Extract with dpkg-source -x xclip_0.13-2.dsc, then follow debian/rules (dpkg-buildpackage); upstream configure/Makefile build files are included in the original source. ThumbTalk invokes xclip as a separate process; it does not link its code.

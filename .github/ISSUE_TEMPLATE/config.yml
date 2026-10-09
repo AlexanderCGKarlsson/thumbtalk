@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Setup and troubleshooting
+    url: https://github.com/AlexanderCGKarlsson/thumbtalk/blob/main/README.md#troubleshooting
+    about: Check controller mappings, review/send behavior and known preview limitations.
+  - name: Private security report
+    url: https://github.com/AlexanderCGKarlsson/thumbtalk/security/advisories/new
+    about: Report vulnerabilities or privacy concerns privately.

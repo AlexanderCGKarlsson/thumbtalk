@@ -1,0 +1,51 @@
+name: Bug report
+description: Report a setup, recording, radial, review or sending problem.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing ThumbTalk. A photo or short description is enough to start; no full settings JSON is required. Remove private chat, character names and account paths. Do not repeat a full game freeze just to collect evidence.
+  - type: input
+    id: version
+    attributes:
+      label: ThumbTalk version and build
+      description: See Setup or the beginning of companion.log. Note if the addon came from a different package.
+      placeholder: 0.8.0 build 1, matching addon
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Operating system
+      options:
+        - SteamOS
+        - Windows
+        - Other Linux
+        - macOS (source)
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device, OS version and game client
+      placeholder: ROG Ally X, SteamOS Gaming Mode, WoW Classic; client build if known
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what actually happened? For a freeze, did all animation stop or only your controls?
+    validations:
+      required: true
+  - type: textarea
+    id: controls
+    attributes:
+      label: Settings and active controls
+      description: Review or immediate sending, model/language, Talk/Menu assignments, active Steam or handheld profile, and any other buttons held. Include only what is relevant.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Optional photo or short log excerpt
+      description: Attach a redacted screenshot or the few lines around the problem. Do not include credentials or a full private chat log.

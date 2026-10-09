@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Install ThumbTalk
+Comment=Install the ThumbTalk package included in this folder
+Terminal=true
+Icon=audio-input-microphone
+Exec=bash -c "cd -- \"\$(dirname -- \"\$1\")\" && bash ./install-local.sh; result=\$?; if [ \$result -ne 0 ]; then printf 'Installation failed. Press Enter to close.'; read answer; fi; exit \$result" thumbtalk-install %k

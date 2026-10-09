@@ -1,0 +1,7 @@
+## Interface: 11509, 16001, 20506, 30405, 38002, 40402, 50504, 120100
+## Title: ThumbTalk
+## Notes: Companion for ThumbTalk local voice-to-chat. Type /tt for help.
+## Author: ThumbTalk contributors; based on GamepadSpeak by kubeden
+## Version: 0.8.0-build1
+## IconTexture: Interface\Icons\Ability_Warrior_BattleShout
+ThumbTalk.lua

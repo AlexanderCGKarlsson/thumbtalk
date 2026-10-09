@@ -1,0 +1,29 @@
+# Generated files and local environments
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.DS_Store
+build/
+dist/
+*.spec
+*.log
+
+# Local credentials and configuration
+.env
+.env.*
+!.env.example
+
+# Keep private research and test diaries local. Publish the user guides/artwork.
+docs/*
+!docs/assets/
+docs/assets/*
+!docs/assets/thumbtalk-banner.png
+!docs/assets/language-wheel.png
+!docs/assets/button-setup.png
+!docs/assets/wow-setup.png
+!docs/assets/buy-me-a-coffee.svg

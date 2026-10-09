@@ -1,0 +1,34 @@
+THUMBTALK — ONE-RUN LINUX PROCESS DIAGNOSTIC
+This is not a new companion build or a freeze fix.
+
+1. In Desktop Mode, download and extract this ZIP into Downloads.
+2. Close WoW and ThumbTalk. Open Enable-Diagnostics.desktop (allow execution if
+   KDE asks). Leave your existing Steam launch option unchanged.
+3. The NEXT launch through the installed ThumbTalk Steam wrapper automatically
+   restores your original launcher, then samples the same game session. It does
+   not change sending, bindings, clipboard handling, the addon, or WoW settings.
+4. If you choose another controlled test, do it out of combat with one short
+   message. Do not repeatedly reproduce a freeze. After closing the game, send:
+
+   /home/deck/.local/state/thumbtalk/hang-report.jsonl
+
+It records process/thread states, CPU counters and kernel wait-channel names for
+WoW, ThumbTalk, Wine's server and the display processes. These can help distinguish
+an active loop from a wait, but they are not a debugger stack or a diagnosis.
+No memory, environment variables, full command lines, clipboard contents, voice,
+chat text, screenshots or companion log are collected. Nothing is uploaded.
+The report is readable only by your user account. An earlier report is retained
+as hang-report.jsonl.previous. Sampling stops six seconds after the launcher ends,
+or after 15 minutes or 16 MiB. Closing the sampler never closes the game.
+
+To cancel BEFORE the next game launch, open Remove-Diagnostics.desktop. After the
+one diagnostic launch the normal launcher has already been restored. Keep the
+installed helper files until the pending diagnostic is used or removed.
+
+This expects the existing ~/.local/share/thumbtalk/launch-with-thumbtalk.sh and
+/usr/bin/python3 on SteamOS. If your data/state directories are customized, their
+XDG locations are used. Do not launch a second copy while the game is running.
+
+Fallback if desktop shortcuts open as text: open a terminal in this extracted
+folder and run: python3 arm.py
+To undo a pending diagnostic: python3 arm.py --remove

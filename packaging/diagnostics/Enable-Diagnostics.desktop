@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Enable ThumbTalk One-Run Diagnostics
+Comment=Record local process activity without changing how ThumbTalk sends messages
+Terminal=true
+Icon=utilities-system-monitor
+Exec=bash -c "cd -- \"\$(dirname -- \"\$1\")\" && env -u LD_LIBRARY_PATH -u LD_PRELOAD -u PYTHONHOME -u PYTHONPATH /usr/bin/python3 ./arm.py; result=\$?; printf 'Press Enter to close.'; read answer; exit \$result" thumbtalk-diagnostics %k

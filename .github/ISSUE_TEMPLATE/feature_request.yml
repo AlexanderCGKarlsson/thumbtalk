@@ -1,0 +1,16 @@
+name: Feature request
+description: Suggest an improvement to ThumbTalk.
+title: "[Idea]: "
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What would this help you do?
+      description: Describe the situation and your device or platform.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested behavior
+      description: Explain how you would like it to work. A sketch or example is welcome.

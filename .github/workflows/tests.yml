@@ -1,0 +1,38 @@
+name: Tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  python:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Linux runtime libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libportaudio2 libegl1 libgl1 libdbus-1-3 libfontconfig1
+      - run: uv sync --project helper --python 3.12 --frozen
+      - name: Python tests
+        timeout-minutes: 5
+        run: uv run --project helper python -m unittest discover -s tests -v
+  addon:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y lua5.1
+      - run: |
+          lua5.1 tests/addon_camera.lua addon/ThumbTalk/ThumbTalk.lua
+          lua5.1 tests/addon_chat.lua addon/ThumbTalk/ThumbTalk.lua
+          lua5.1 tests/addon_inbox.lua addon/ThumbTalk/ThumbTalk.lua
