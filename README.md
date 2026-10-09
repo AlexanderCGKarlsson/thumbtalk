@@ -17,11 +17,45 @@
 </p>
 
 <p align="center">
-  <a href="#get-started"><strong>Get started</strong></a> &nbsp; / &nbsp;
+  <a href="#quick-start-for-beginners"><strong>Quick start</strong></a> &nbsp; / &nbsp;
+  <a href="#get-started">Get started</a> &nbsp; / &nbsp;
   <a href="#controls">User guide</a> &nbsp; / &nbsp;
   <a href="#troubleshooting">Troubleshooting</a> &nbsp; / &nbsp;
   <a href="#support-thumbtalk">Support the project</a>
 </p>
+
+---
+
+## Quick start for beginners
+
+No programming needed. You need a PC or handheld with **WoW installed**, a **microphone**, and about 10 minutes (plus a one-time speech model download). ThumbTalk is a preview (beta), so tell us if something is confusing.
+
+### Windows (64-bit)
+
+1. **Download.** Open the [release page](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.0), scroll to **Assets** at the bottom (click **Assets** if it is collapsed) and click **`thumbtalk-windows-setup.exe`**. Your browser may ask to "keep" the file because it is not commonly downloaded; choose **Keep**.
+   Do **not** click "Source code (zip)". That is for developers and will not install anything.
+2. **Run it.** Open your **Downloads** folder and double-click `thumbtalk-windows-setup.exe`. No administrator password is needed.
+3. **If Windows says "Windows protected your PC" (SmartScreen):** the installer is not code-signed yet, so this is expected. Click **More info**, then **Run anyway**. If your antivirus blocks or quarantines it, check that the file came from the release page above, then allow it for this file only. Do not turn off your antivirus or Windows security entirely.
+4. **Install.** Click through the installer and leave **Open ThumbTalk** ticked on the last page. Setup opens by itself.
+5. **Voice step.** Pick your microphone and spoken language. Download **Whisper Small** (the recommended speech model). The first download can take a few minutes and needs internet; wait until it finishes. It only happens once.
+6. **Test your microphone.** Start the voice test, click **Record**, say a sentence, click **Stop recording**, then **Listen to recording**. If you hear nothing, see [Troubleshooting](#troubleshooting).
+7. **Buttons step.** Next to **Talk** and **Menu**, click **Change**, then **Listen for a button…** and press the controller button (or key) you want. Pick buttons that WoW does not already use.
+8. **WoW step.** Select your WoW version (Retail, Classic, ...) and click **Install addon**. Repeat for each version you play.
+9. **Finish.** Click **Save & finish**. Close WoW if it was open, then **start WoW and restart it fully** so it loads the addon.
+10. **Use it.** Start **ThumbTalk** from the Start menu and keep it running while you play. In WoW: **hold Talk, speak, release**, read the line starting with `ThumbTalk:` in your chat window, then **tap Talk to send** or **tap Menu to cancel**.
+
+*Prefer a ZIP?* Download `thumbtalk-windows-x86_64.zip` from the same Assets list, right-click it, choose **Extract All...**, open the extracted `ThumbTalk` folder and run `thumbtalk.exe --setup` (for example from a shortcut or a Command Prompt opened in that folder). Do not run it from inside the ZIP preview. Alternatively download **`Install-ThumbTalk.cmd`** from the Assets list and double-click it: it downloads and installs the portable build for you (internet needed; SmartScreen may warn here too: **More info → Run anyway**).
+
+### Linux / SteamOS
+
+1. Download **`ThumbTalk-0.8.0-build1-linux.zip`** from the **Assets** list on the [release page](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.0).
+2. **Extract the whole ZIP** (right-click → Extract). Do not run files from inside the ZIP.
+3. In the extracted folder, open **`Install-ThumbTalk.desktop`** (choose "Execute" or allow it to run if asked). If it opens as text instead, open a terminal in that folder and run `bash install-local.sh`.
+4. Follow steps 5 to 10 above. Linux needs X11 or XWayland, and SteamOS needs the extra Steam steps in [Set up your voice and buttons](#set-up-your-voice-and-buttons).
+
+### Something went wrong?
+
+See the [top 5 problems](#top-5-problems-for-new-users) below, or [report a bug](#how-to-report-a-bug) (screenshots are fine, no technical knowledge needed).
 
 ---
 
@@ -261,6 +295,16 @@ addon together, then restart WoW. Preferences stay outside the app folder.
 
 ## Troubleshooting
 
+### Top 5 problems for new users
+
+1. **Windows blocks the installer ("Windows protected your PC") or antivirus complains.** Click **More info → Run anyway**, or allow the file in your antivirus. Only do this for a file downloaded from the official release page.
+2. **Setup says there is no sound / the voice test records nothing.** Check that the right microphone is selected in ThumbTalk, and that Windows allows desktop apps to use it (Windows **Settings → Privacy & security → Microphone**; switch on microphone access and **Let desktop apps access your microphone**). Then try the test again.
+3. **The first start is slow or seems stuck.** Speech models download on first use and can take several minutes. Keep ThumbTalk open until the download finishes, and check your internet connection.
+4. **Nothing happens in WoW when I press Talk.** ThumbTalk must be **running** while you play, the addon must be installed for the WoW version you launched (Setup → WoW → **Install addon**), and WoW must be **fully restarted** after installing. Re-learn your buttons with **Buttons → Change → Listen for a button…**. On handhelds, rear buttons usually need to be set to keyboard keys (such as F8 and F7) in Armoury Crate or your device's controller app.
+5. **The chat box stays open or text is left in it after sending.** This is a known preview limitation. Close or clear the chat box by hand before the next recording and avoid pressing other buttons while a message is being sent.
+
+More detail is in the table below.
+
 | Symptom | What to check |
 | :--- | :--- |
 | **Ready, but neither Talk nor Menu reacts on SteamOS** | Check ThumbTalk's saved keys against the **running game's** Steam layout. Restart WoW and the companion; if needed, reboot the handheld. A reboot restored this on our SteamOS Ally; the cause is unconfirmed. |
@@ -281,7 +325,19 @@ Settings: **Windows** `%APPDATA%\thumbtalk\settings.json`; **Linux**
 after changing saved bindings. In-game menu choices save for the next launch.
 The Linux companion log is `${XDG_STATE_HOME:-~/.local/state}/thumbtalk/companion.log`.
 
-[Report a bug](https://github.com/AlexanderCGKarlsson/thumbtalk/issues/new/choose)
+### How to report a bug
+
+Open a [new bug report](https://github.com/AlexanderCGKarlsson/thumbtalk/issues/new/choose) (a free GitHub account is needed), or send the details to the person who gave you ThumbTalk. Please include:
+
+- **Version:** shown in Setup (for example 0.8.0 build 1).
+- **Operating system and device:** for example Windows 11 on a gaming laptop, or ROG Ally on Windows.
+- **WoW version:** Retail, Classic or other.
+- **What you did, what you expected, what happened.** A phone photo or screenshot is fine.
+- **Sending mode and your Talk/Menu buttons**, if you know them.
+
+Remove private chat, character names and account paths from anything you share. If WoW freezes, do not repeat the test on purpose.
+
+Short version: [report a bug](https://github.com/AlexanderCGKarlsson/thumbtalk/issues/new/choose)
 with your device, OS, WoW client, version/build, sending mode and reproduction
 steps. Remove private chat and account details from logs or screenshots.
 For vulnerabilities, use [private reporting](https://github.com/AlexanderCGKarlsson/thumbtalk/security/advisories/new).
