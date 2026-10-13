@@ -34,6 +34,13 @@ jobs:
       - name: Python tests
         timeout-minutes: 5
         run: uv run --project helper python -m unittest discover -s tests -v
+      - name: Check native Windows input
+        if: runner.os == 'Windows'
+        timeout-minutes: 5
+        env:
+          QT_QPA_PLATFORM: windows
+          PYNPUT_BACKEND: win32
+        run: uv run --project helper python helper/thumbtalk_cli.py --self-test
       - run: uv run --project helper python packaging/build.py
       - name: Check Linux installer
         if: runner.os == 'Linux'
@@ -49,6 +56,7 @@ jobs:
         shell: pwsh
         env:
           QT_QPA_PLATFORM: windows
+          PYNPUT_BACKEND: win32
         run: |
           ./install.ps1 -Bundle "$PWD/dist/thumbtalk" -InstallDir "$env:RUNNER_TEMP/ThumbTalkPortable" -NoLaunch -NoShortcuts
           & "$env:RUNNER_TEMP/ThumbTalkPortable/app/thumbtalk.exe" --self-test
@@ -58,6 +66,7 @@ jobs:
         shell: pwsh
         env:
           QT_QPA_PLATFORM: windows
+          PYNPUT_BACKEND: win32
         run: |
           $target = "$env:RUNNER_TEMP/ThumbTalkSetup"
           $process = Start-Process -FilePath "./dist/release/thumbtalk-windows-setup.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$target`"" -Wait -PassThru
