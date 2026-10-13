@@ -2,6 +2,6 @@
 ## Title: ThumbTalk
 ## Notes: Companion for ThumbTalk local voice-to-chat. Type /tt for help.
 ## Author: ThumbTalk contributors; based on GamepadSpeak by kubeden
-## Version: 0.8.0-build2
+## Version: 0.8.1-build2
 ## IconTexture: Interface\Icons\Ability_Warrior_BattleShout
 ThumbTalk.lua
