@@ -316,6 +316,7 @@ class KeyboardDelivery:
                 keyboard = Controller()
         self.keyboard, self.sleep, self.on_key = keyboard, sleep, on_key
         self.text_writer = None
+        self.chat_text = None
         self.clipboard = clipboard
         self.pending_text = None
         self.linux_input = None
@@ -478,7 +479,8 @@ class KeyboardDelivery:
                 guard,
                 lambda message: self.log(f"Chat command {number}: {message}"),
             )
-        windows = platform.system() == "Windows"
+        if platform.system() == "Windows":
+            return self._windows_command(text, guard)
         if self.clipboard is None or getattr(self.clipboard, "closed", False) is True:
             from thumbtalk_clipboard import ClipboardLease
 
@@ -495,14 +497,8 @@ class KeyboardDelivery:
             self.sleep(self.timing.open_delay)
             phase = "insert"
             self.log(f"Chat command {number}: insert requested")
-            if windows:
-                self.clipboard.arm(lease)
             self._paste(guard)
             self.sleep(self.timing.insert_delay)
-            if windows:
-                # Check the clipboard has not changed; this is not a delivery
-                # acknowledgement and never waits for a clipboard-read reply.
-                self.clipboard.arm(lease)
             phase = "submit"
             self.log(f"Chat command {number}: submit requested")
             self._chat_key(Key.enter, guard)
@@ -524,6 +520,38 @@ class KeyboardDelivery:
         else:
             if lease is not None:
                 self.clipboard.restore(lease)
+
+    def _windows_command(self, text, guard):
+        from pynput.keyboard import Key
+        from thumbtalk_windows_text import WindowsChatText
+
+        if self.chat_text is None:
+            self.chat_text = WindowsChatText()
+        window = self.chat_text.target(guard)
+        self.command_number += 1
+        number, phase = self.command_number, "open"
+        try:
+            self.log(f"Chat command {number}: open requested (Windows scan codes)")
+            self._open_slash(guard)
+            self.sleep(self.timing.open_delay)
+            phase = "insert"
+            self.log(
+                f"Chat command {number}: text insertion requested with WM_CHAR; no paste shortcut"
+            )
+            self.chat_text.text(window, text[1:], guard)
+            self.sleep(self.timing.insert_delay)
+            phase = "submit"
+            self.log(f"Chat command {number}: submit requested")
+            self._chat_key(Key.enter, guard)
+            self.sleep(self.timing.settle_delay)
+            self.log(
+                f"Chat command {number}: native input completed; delivery and editor focus unconfirmed"
+            )
+        except Exception as error:
+            self.log(
+                f"Chat command {number}: stopped during {phase}; {error}; no automatic retry"
+            )
+            raise
 
     @property
     def local_review_available(self):
