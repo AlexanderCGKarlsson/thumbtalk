@@ -14,6 +14,7 @@ from thumbtalk_windows_text import (
     Input,
     WindowsTextWriter,
     WindowsControlKeys,
+    WindowsChatText,
     INPUT_MARKER,
 )
 
@@ -130,7 +131,7 @@ class UnicodeTests(unittest.TestCase):
         def send(count, data, size):
             events.extend(
                 (
-                    data[i].data.ki.wVk,
+                    data[i].data.ki.wScan,
                     data[i].data.ki.dwFlags,
                     data[i].data.ki.dwExtraInfo,
                 )
@@ -139,7 +140,9 @@ class UnicodeTests(unittest.TestCase):
             return count
 
         writer = WindowsTextWriter(send)
-        controls = WindowsControlKeys(writer)
+        u = Mock()
+        u.MapVirtualKeyExW.side_effect = lambda vk, *_: {0x0D: 0x1C, 0x56: 0x2F}[vk]
+        controls = WindowsControlKeys(writer, u)
         key = SimpleNamespace(value=SimpleNamespace(vk=0x0D))
         controls.press(key)
         controls.release(key)
@@ -149,12 +152,12 @@ class UnicodeTests(unittest.TestCase):
         self.assertEqual(
             events,
             [
-                (0x0D, 0, INPUT_MARKER),
-                (0x0D, 2, INPUT_MARKER),
-                (0x56, 0, INPUT_MARKER),
-                (0x56, 2, INPUT_MARKER),
-                (0, 4, INPUT_MARKER),
-                (0, 6, INPUT_MARKER),
+                (0x1C, 8, INPUT_MARKER),
+                (0x1C, 10, INPUT_MARKER),
+                (0x2F, 8, INPUT_MARKER),
+                (0x2F, 10, INPUT_MARKER),
+                (ord("æ"), 4, INPUT_MARKER),
+                (ord("æ"), 6, INPUT_MARKER),
             ],
         )
         with self.assertRaises(ValueError):
@@ -298,7 +301,10 @@ class SubmissionTests(unittest.TestCase):
                         delivery = KeyboardDelivery(
                             game, sleep=game.advance, clipboard=clipboard
                         )
-                    delivery.text_writer = SimpleNamespace(text=game.pending.append)
+                    delivery.chat_text = SimpleNamespace(
+                        target=lambda _: 123,
+                        text=lambda window, text, guard: game.pending.append(text),
+                    )
                     with (
                         patch(
                             "thumbtalk_platform.platform.system", return_value=system
@@ -319,14 +325,15 @@ class SubmissionTests(unittest.TestCase):
                     )
                     self.assertEqual(game.held, set())
 
-    def test_native_commands_paste_full_text_before_enter_without_letter_packets(self):
+    def test_native_commands_insert_before_enter_without_letter_keys(self):
         for system in ("Darwin", "Windows"):
             keyboard, clipboard, writer = Mock(), Mock(), Mock()
             clipboard.acquire.return_value = "lease"
             delivery = KeyboardDelivery(
                 keyboard, sleep=lambda _: None, clipboard=clipboard
             )
-            delivery.text_writer = writer if system == "Windows" else None
+            delivery.chat_text = writer
+            writer.target.return_value = 123
             with (
                 patch("thumbtalk_platform.platform.system", return_value=system),
                 patch.dict(sys.modules, {"pynput.keyboard": self.key_module()}),
@@ -334,11 +341,12 @@ class SubmissionTests(unittest.TestCase):
                 delivery._command("/s hello æøå", lambda: True)
             if system == "Windows":
                 keyboard.slash.assert_called_once()
-                writer.text.assert_not_called()
-                self.assertEqual(clipboard.arm.call_count, 2)
+                self.assertEqual(writer.text.call_args.args[:2], (123, "s hello æøå"))
+                clipboard.acquire.assert_not_called()
+                clipboard.restore.assert_not_called()
                 self.assertEqual(
                     [c.args[0] for c in keyboard.press.call_args_list],
-                    ["CTRL_L", "v", "ENTER"],
+                    ["ENTER"],
                 )
             else:
                 modifier = "CMD" if system == "Darwin" else "CTRL_L"
@@ -346,8 +354,8 @@ class SubmissionTests(unittest.TestCase):
                     [c.args[0] for c in keyboard.press.call_args_list],
                     ["/", modifier, "v", "ENTER"],
                 )
-            clipboard.acquire.assert_called_once_with("s hello æøå")
-            clipboard.restore.assert_called_once_with("lease")
+                clipboard.acquire.assert_called_once_with("s hello æøå")
+                clipboard.restore.assert_called_once_with("lease")
             clipboard.wait_for_read.assert_not_called()
 
     def test_send_opens_chat_once_and_never_injects_cleanup_slash_or_escape(self):
@@ -356,7 +364,7 @@ class SubmissionTests(unittest.TestCase):
             delivery = KeyboardDelivery(
                 keyboard, sleep=lambda _: None, clipboard=clipboard
             )
-            delivery.text_writer = writer
+            delivery.chat_text = writer
             with (
                 patch("thumbtalk_platform.platform.system", return_value=system),
                 patch.dict(sys.modules, {"pynput.keyboard": self.key_module()}),
@@ -411,6 +419,10 @@ class SubmissionTests(unittest.TestCase):
             delivery = KeyboardDelivery(
                 window, sleep=lambda _: None, clipboard=Mock(acquire=window.acquire)
             )
+            delivery.chat_text = SimpleNamespace(
+                target=lambda _: 123,
+                text=lambda hwnd, text, guard: window.insert(text),
+            )
             with (
                 patch("thumbtalk_platform.platform.system", return_value="Windows"),
                 patch.dict(sys.modules, {"pynput.keyboard": self.key_module()}),
@@ -438,7 +450,7 @@ class SubmissionTests(unittest.TestCase):
             keyboard, sleep=lambda _: None, log=logs.append, clipboard=Mock()
         )
         # This editor consumes Enter; returning from native input is not receipt.
-        delivery.text_writer = Mock()
+        delivery.chat_text = Mock()
         with (
             patch("thumbtalk_platform.platform.system", return_value="Windows"),
             patch.dict(sys.modules, {"pynput.keyboard": self.key_module()}),
@@ -503,32 +515,31 @@ class SubmissionTests(unittest.TestCase):
         self.assertIn("stopped during insert", logs[-1])
         self.assertNotIn("private message", " ".join(logs))
 
-    def test_windows_changed_clipboard_or_player_input_never_submits(self):
-        for failure in ("clipboard", "input"):
-            keyboard, clipboard = Mock(), Mock()
+    def test_windows_failed_text_or_player_input_never_submits_or_falls_back(self):
+        for failure in ("text", "input"):
+            keyboard, clipboard, writer = Mock(), Mock(), Mock()
             ready = True
 
             def settle(seconds):
                 nonlocal ready
-                if keyboard.press.call_args and keyboard.press.call_args.args == ("v",):
+                if writer.text.called:
                     if failure == "input":
                         ready = False
 
-            if failure == "clipboard":
-                clipboard.arm.side_effect = [None, RuntimeError("clipboard changed")]
+            if failure == "text":
+                writer.text.side_effect = RuntimeError("Windows text unavailable")
             with (
                 patch("thumbtalk_platform.platform.system", return_value="Windows"),
                 patch.dict(sys.modules, {"pynput.keyboard": self.key_module()}),
             ):
                 delivery = KeyboardDelivery(keyboard, sleep=settle, clipboard=clipboard)
+                delivery.chat_text = writer
                 with self.assertRaises(RuntimeError):
                     delivery.send(lambda: ready, "/s private words")
             pressed = [c.args[0] for c in keyboard.press.call_args_list]
-            self.assertEqual(pressed, ["CTRL_L", "v"])
-            self.assertEqual(
-                [c.args[0] for c in keyboard.release.call_args_list], ["v", "CTRL_L"]
-            )
-            clipboard.restore.assert_called_once()
+            self.assertEqual(pressed, [])
+            clipboard.acquire.assert_not_called()
+            clipboard.restore.assert_not_called()
             clipboard.wait_for_read.assert_not_called()
             self.assertIsNone(delivery.pending_text)
 
@@ -544,7 +555,7 @@ class SubmissionTests(unittest.TestCase):
                 timing=timing,
                 log=logs.append,
             )
-            delivery.text_writer = writer
+            delivery.chat_text = writer
             with (
                 patch("thumbtalk_platform.platform.system", return_value=system),
                 patch.dict(sys.modules, {"pynput.keyboard": self.key_module()}),
@@ -681,16 +692,91 @@ class SubmissionTests(unittest.TestCase):
         writer, u = Mock(), Mock()
         writer.send_input.return_value = 1
         u.VkKeyScanExW.return_value = 0x0137  # Shift+7 -> / on Norwegian keyboard
+        u.MapVirtualKeyExW.side_effect = lambda vk, *_: {0xA0: 0x2A, 0x37: 0x08}[vk]
         events = []
 
         def send(count, data, size):
-            events.append((data[0].data.ki.wVk, data[0].data.ki.dwFlags))
+            events.append(
+                (data[0].data.ki.wVk, data[0].data.ki.wScan, data[0].data.ki.dwFlags)
+            )
             return 1
 
         writer.send_input.side_effect = send
-        WindowsControlKeys(writer).slash(u)
-        self.assertEqual(events, [(0xA0, 0), (0x37, 0), (0x37, 2), (0xA0, 2)])
+        WindowsControlKeys(writer, u).slash(sleep=lambda _: None)
+        self.assertEqual(
+            events, [(0, 0x2A, 8), (0, 0x08, 8), (0, 0x08, 10), (0, 0x2A, 10)]
+        )
         u.VkKeyScanExW.return_value = -1
         with self.assertRaises(ValueError):
-            WindowsControlKeys(writer).slash(u)
+            WindowsControlKeys(writer, u).slash(sleep=lambda _: None)
         self.assertEqual(len(events), 4)
+
+    def test_scan_code_release_keeps_original_mapping_after_layout_change(self):
+        u, writer = Mock(), Mock()
+        u.MapVirtualKeyExW.side_effect = [0xE01D, 0x38]
+        writer.send_input.return_value = 1
+        controls = WindowsControlKeys(writer, u)
+        events = []
+        writer.send_input.side_effect = (
+            lambda n, p, s: events.append((p[0].data.ki.wScan, p[0].data.ki.dwFlags))
+            or n
+        )
+        key = SimpleNamespace(vk=0xA3)
+        controls.press(key)
+        controls.release(key)
+        self.assertEqual(events, [(0x1D, 9), (0x1D, 11)])
+        self.assertEqual(u.MapVirtualKeyExW.call_count, 1)
+
+
+class WindowsChatTextTests(unittest.TestCase):
+    def api(self):
+        u = Mock()
+        u.GetForegroundWindow.return_value = 2**40 + 1
+        u.IsWindowUnicode.return_value = 1
+        u.PostMessageW.return_value = 1
+        return u
+
+    def test_text_only_messages_preserve_accents_and_surrogate_pairs(self):
+        u = self.api()
+        writer = WindowsChatText(u)
+        window = writer.target(lambda: True)
+        text = "s wasd bags æøå 😀"
+        writer.text(window, text, lambda: True)
+        calls = [c.args for c in u.PostMessageW.call_args_list]
+        self.assertTrue(
+            all(
+                (hwnd, msg, flags) == (window, 0x102, 1)
+                for hwnd, msg, unit, flags in calls
+            )
+        )
+        self.assertEqual(
+            b"".join(c[2].to_bytes(2, "little") for c in calls).decode("utf-16-le"),
+            text,
+        )
+        u.SendInput.assert_not_called()
+
+    def test_failed_queue_or_focus_change_stops_without_retry(self):
+        for cause in ("queue", "focus", "controls"):
+            u = self.api()
+            window = u.GetForegroundWindow()
+            if cause == "queue":
+                u.PostMessageW.side_effect = [1, 0]
+            elif cause == "focus":
+                u.GetForegroundWindow.side_effect = [window, window + 1]
+            guard = (
+                Mock(side_effect=[True, False]) if cause == "controls" else lambda: True
+            )
+            with self.subTest(cause=cause), self.assertRaises(RuntimeError):
+                WindowsChatText(u).text(window, "abc", guard)
+            self.assertEqual(u.PostMessageW.call_count, 2 if cause == "queue" else 1)
+
+    def test_invalid_text_or_target_sends_nothing(self):
+        u = self.api()
+        writer = WindowsChatText(u)
+        for text in ("s a\nb", "s \tbad", "s \x16"):
+            with self.assertRaises(ValueError):
+                writer.text(123, text, lambda: True)
+        u.IsWindowUnicode.return_value = 0
+        with self.assertRaises(RuntimeError):
+            writer.target(lambda: True)
+        u.PostMessageW.assert_not_called()

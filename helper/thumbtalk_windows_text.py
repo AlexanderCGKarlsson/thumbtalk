@@ -83,11 +83,78 @@ class WindowsTextWriter:
             )
 
 
+def input_api():
+    u = ctypes.WinDLL("user32", use_last_error=True)
+    u.GetForegroundWindow.restype = ctypes.c_void_p
+    u.GetWindowThreadProcessId.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    u.GetKeyboardLayout.argtypes = [ctypes.c_uint32]
+    u.GetKeyboardLayout.restype = ctypes.c_void_p
+    u.VkKeyScanExW.argtypes = [ctypes.c_wchar, ctypes.c_void_p]
+    u.VkKeyScanExW.restype = ctypes.c_short
+    u.MapVirtualKeyExW.argtypes = [ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p]
+    u.MapVirtualKeyExW.restype = ctypes.c_uint32
+    return u
+
+
+class WindowsChatText:
+    """Foreground-only WM_CHAR transport; never presses a letter or paste key.
+
+    Posting succeeds when Windows queues a message, not when WoW inserts it.
+    No clipboard or physical-key fallback is allowed. Live client support must
+    be tested separately from the native Windows editor fixture.
+    """
+
+    def __init__(self, user32=None):
+        self.user = user32 or input_api()
+        if user32 is None:
+            self.user.PostMessageW.argtypes = [
+                ctypes.c_void_p,
+                ctypes.c_uint32,
+                ctypes.c_size_t,
+                ctypes.c_ssize_t,
+            ]
+            self.user.PostMessageW.restype = ctypes.c_int
+            self.user.IsWindowUnicode.argtypes = [ctypes.c_void_p]
+            self.user.IsWindowUnicode.restype = ctypes.c_int
+
+    def target(self, guard):
+        window = self.user.GetForegroundWindow()
+        if not guard() or not window or not self.user.IsWindowUnicode(window):
+            raise RuntimeError(
+                "Windows chat text needs the foreground Unicode game window."
+            )
+        return window
+
+    def text(self, window, text, guard):
+        # Reject control characters even if called outside KeyboardDelivery.
+        if any(ord(char) < 32 or ord(char) == 127 for char in text):
+            raise ValueError("Control characters are not allowed in chat text.")
+        encoded = text.encode("utf-16-le")
+        for offset in range(0, len(encoded), 2):
+            if not guard() or self.user.GetForegroundWindow() != window:
+                raise RuntimeError(
+                    "Windows text entry stopped because focus or controls changed."
+                )
+            unit = int.from_bytes(encoded[offset : offset + 2], "little")
+            if not self.user.PostMessageW(window, 0x0102, unit, 1):  # WM_CHAR
+                raise RuntimeError(
+                    "Windows could not queue chat text. Nothing retried."
+                )
+
+
 class WindowsControlKeys:
     """Tagged control keys for Enter, the paste shortcut and addon signals."""
 
-    def __init__(self, writer=None):
+    def __init__(self, writer=None, user32=None):
         self.writer = writer or WindowsTextWriter()
+        self.user = user32 or input_api()
+        self.held = {}
+
+    def _layout(self):
+        thread = self.user.GetWindowThreadProcessId(
+            self.user.GetForegroundWindow(), None
+        )
+        return self.user.GetKeyboardLayout(thread)
 
     def _send(self, key, released):
         value = getattr(key, "value", key)
@@ -96,12 +163,27 @@ class WindowsControlKeys:
         vk = 0x56 if key == "v" else getattr(value, "vk", None)
         if vk is None:
             raise ValueError("Only explicit Windows control keys are supported.")
+        # Games can consume scan codes rather than the virtual-key messages
+        # used by ordinary desktop editors. Keep releases on the original scan
+        # code even if the foreground layout changes while a key is held.
+        scan = self.held.get(vk)
+        if scan is None:
+            scan = self.user.MapVirtualKeyExW(vk, 4, self._layout())
+        if not scan or (scan >> 8) not in (0, 0xE0):
+            raise ValueError(
+                "The active keyboard layout cannot map this chat control key."
+            )
+        if not released:
+            self.held[vk] = scan
+        flags = 8 | (1 if scan >> 8 == 0xE0 else 0) | (2 if released else 0)
         event = Input(
             1,
-            InputUnion(ki=KeyboardInput(vk, 0, 2 if released else 0, 0, INPUT_MARKER)),
+            InputUnion(ki=KeyboardInput(0, scan & 255, flags, 0, INPUT_MARKER)),
         )
         if self.writer.send_input(1, ctypes.pointer(event), ctypes.sizeof(Input)) != 1:
             raise RuntimeError("Windows could not deliver the chat control key.")
+        if released:
+            self.held.pop(vk, None)
 
     def press(self, key):
         self._send(key, False)
@@ -109,20 +191,11 @@ class WindowsControlKeys:
     def release(self, key):
         self._send(key, True)
 
-    def slash(self, user32=None, sleep=time.sleep, hold=0.08):
+    def slash(self, sleep=time.sleep, hold=0.08):
         """Native / key in the foreground window's layout, tagged as our input."""
         from types import SimpleNamespace
 
-        u = user32 or ctypes.WinDLL("user32", use_last_error=True)
-        if user32 is None:
-            u.GetForegroundWindow.restype = ctypes.c_void_p
-            u.GetWindowThreadProcessId.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-            u.GetKeyboardLayout.argtypes = [ctypes.c_uint32]
-            u.GetKeyboardLayout.restype = ctypes.c_void_p
-            u.VkKeyScanExW.argtypes = [ctypes.c_wchar, ctypes.c_void_p]
-            u.VkKeyScanExW.restype = ctypes.c_short
-        thread = u.GetWindowThreadProcessId(u.GetForegroundWindow(), None)
-        mapping = u.VkKeyScanExW("/", u.GetKeyboardLayout(thread))
+        mapping = self.user.VkKeyScanExW("/", self._layout())
         if mapping == -1 or (mapping >> 8) & ~7:
             raise ValueError(
                 "The active keyboard layout cannot type / to open WoW chat."

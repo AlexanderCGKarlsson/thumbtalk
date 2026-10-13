@@ -98,6 +98,13 @@ A light stick movement selects a segment; return to center between menu levels.
 
 **[Download ThumbTalk 0.8.1 · build 2](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.1)**
 
+The Windows candidate in this branch is **0.8.1 build 3**, separate from the
+published download above. It sends text through Windows character messages,
+without Ctrl+V or physical transcript letter keys. Opening chat and submitting
+still use keyboard events. WoW acceptance and chat closing require a live test;
+a successful Windows API call does not confirm delivery. It has no automatic
+clipboard or physical-letter fallback. Linux/macOS text delivery is unchanged.
+
 **0.8 is the preview/beta series.** Windows handheld verification is still in
 progress. **1.0 is reserved for stable.** These packages include the companion,
 matching addon and runtime; no Python installation or GitHub account is needed.
@@ -310,7 +317,8 @@ More detail is in the table below.
 | **Ready, but neither Talk nor Menu reacts on SteamOS** | Check ThumbTalk's saved keys against the **running game's** Steam layout. Restart WoW and the companion; if needed, reboot the handheld. A reboot restored this on our SteamOS Ally; the cause is unconfirmed. |
 | **Mouse 4 is learned as Mouse 5** | This has been reported on a SteamOS Ally. Test the physical buttons with temporary letter bindings in a text editor to separate left/right mapping from mouse numbering. Match the actual signal in both Steam layouts, or use spare keyboard keys. Do not assume L5/R5 must be swapped. |
 | **Windows rear buttons are not detected** | Assign primary keyboard actions in Armoury Crate or the device's controller app, then learn those keys in ThumbTalk. Steam is optional. |
-| **Windows briefly shows `/s` or unexpected text, then sends nothing** | In 0.8.1, text is pasted before Enter instead of sent as individual character packets. Try a short message with other buttons released. Open **Setup → Open delivery log** afterward; its saved delivery stages and errors remain available even if the overlay disappears. Do not assume “Send requested” means WoW accepted it. |
+| **Windows briefly shows `/s`, toggles nameplates, or sends nothing** | A nameplate toggle suggests input reached a gameplay binding; it does not establish why chat failed to open. The published 0.8.1 build 2 uses Ctrl+V, which can conflict with a game binding outside chat. The build 3 candidate avoids this shortcut but still needs live verification. Open **Setup → Open delivery log** for the saved stages and errors. Do not assume “Send requested” means WoW accepted it. |
+| **A circular alphabet keyboard appears when chat opens** | This is ConsolePort's keyboard module. Temporarily disabling only **Console Port Keyboard** and reloading the UI can help isolate it. On our Windows Retail test, disabling it removed the keyboard but did not fix missing text or nameplate toggles. |
 | **WoW works directly, but ThumbTalk is missing through Battle.net** | Put the launch option on the **Battle.net Steam shortcut** too, and check its active controller layout. The addon being enabled does not mean the companion is running. |
 | **The radial is missing** | Start the companion, confirm the Menu binding, and check for reset keybindings. Hidden status does not hide the radial. |
 | **Camera moves while the radial is open** | Update the addon for the client you launched. Use joystick axes for the right stick, not an “As Mouse” mapping. Remove conflicts on reserved F11–F14. |

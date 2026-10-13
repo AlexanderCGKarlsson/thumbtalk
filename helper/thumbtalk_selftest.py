@@ -1327,11 +1327,13 @@ def check_windows_text(app):
     editor.activateWindow()
     editor.setFocus()
     packets = []
+    scan_codes = []
     errors = []
 
     def capture(message, data):
         if data.flags & 0x10:  # LLKHF_INJECTED
             packets.append(data.vkCode)
+            scan_codes.append(data.scanCode)
         return True
 
     hub = InputHub()
@@ -1377,6 +1379,7 @@ def check_windows_text(app):
             "Our text packets were mistaken for player input"
         )
         packets.clear()
+        scan_codes.clear()
         delivery.menu_signal(True, lambda: True)
         delivery.menu_signal(False, lambda: True)
         deadline = time.monotonic() + 2
@@ -1384,12 +1387,14 @@ def check_windows_text(app):
             editor.pump()
             time.sleep(0.01)
         assert packets == [0x7A, 0x7A, 0x7B, 0x7B], packets
+        assert scan_codes == [0x57, 0x57, 0x58, 0x58], scan_codes
         # This checks the OS input path in a normal editor, not WoW's security model.
         editor.clear()
-        # A normal EDIT accepts VK_PACKET, but games need not. Verify the
-        # actual command path still inserts accents and emoji without them.
+        # Reject VK_PACKET: the candidate command path uses WM_CHAR directly.
+        # This proves OS message delivery, not that a WoW client accepts it.
         editor.accept_unicode_packets = False
         packets.clear()
+        scan_codes.clear()
 
         clipboard = app.clipboard()
         from PySide6.QtCore import QMimeData
@@ -1423,8 +1428,7 @@ def check_windows_text(app):
             or editor.toPlainText()
             != "/ttr aabbccdd 1 1 2f73204d6f7665206c6566742120c3a6c3b8c3a520f09f9880\n/s Move left! æøå 😀\n"
         ) and time.monotonic() < deadline:
-            # The clipboard snapshot belongs to this Qt thread; service its
-            # requests while the delivery worker and native editor run.
+            # Keep the app and native editor responsive during the worker.
             app.processEvents()
             editor.pump()
             hub.poll()
@@ -1445,11 +1449,12 @@ def check_windows_text(app):
         for key in (0x78, 0x79):  # local review submitted/discarded, no editor mutation
             assert packets.count(key) == 2, packets
         assert 0x74 not in packets and 0x75 not in packets, "Old focus signals remain"
-        assert packets.count(0x56) == 4, "Expected one paste per command"
+        assert 0x56 not in packets, "Chat emitted a V / Ctrl+V gameplay key"
         assert 0xE7 not in packets, "Chat still depends on VK_PACKET handling"
+        assert all(scan_codes), "A chat control key arrived without a scan code"
         assert not hub.physical_modifiers and hub.activity.text_ready(version)
         print(
-            "Windows native paste, local-review transport, restored clipboard and input guard with analog movement held passed.",
+            "Windows WM_CHAR text, local-review transport, untouched clipboard and input guard with analog movement held passed. No V / Ctrl+V emitted; WoW support unverified.",
             flush=True,
         )
         print(
