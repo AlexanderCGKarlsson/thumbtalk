@@ -12,7 +12,7 @@ used by the voice test stay in memory until replaced or the test stops. Review
 text appears locally in WoW's chat history. On acceptance, or in immediate mode,
 WoW sends the message to the selected in-game conversation.
 
-Linux text delivery temporarily uses the system clipboard. Clipboard managers,
+Text delivery temporarily uses the system clipboard. Clipboard managers,
 clipboard-history tools or other applications with clipboard access may retain
 that text. Transient clipboard cleanup cannot delete another app's history.
 

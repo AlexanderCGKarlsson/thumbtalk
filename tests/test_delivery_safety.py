@@ -143,19 +143,23 @@ class UnicodeTests(unittest.TestCase):
         key = SimpleNamespace(value=SimpleNamespace(vk=0x0D))
         controls.press(key)
         controls.release(key)
+        controls.press("v")
+        controls.release("v")
         writer.text("æ")
         self.assertEqual(
             events,
             [
                 (0x0D, 0, INPUT_MARKER),
                 (0x0D, 2, INPUT_MARKER),
+                (0x56, 0, INPUT_MARKER),
+                (0x56, 2, INPUT_MARKER),
                 (0, 4, INPUT_MARKER),
                 (0, 6, INPUT_MARKER),
             ],
         )
         with self.assertRaises(ValueError):
             controls.press("w")
-        self.assertEqual(len(events), 4)
+        self.assertEqual(len(events), 6)
 
     def test_partial_batch_releases_without_resending_text(self):
         calls = []
@@ -201,8 +205,9 @@ class SubmissionTests(unittest.TestCase):
 
     def test_legacy_style_preference_never_changes_game_on_any_platform(self):
         for system in ("Linux", "Windows", "Darwin"):
-            with self.subTest(system=system), patch(
-                "thumbtalk_platform.platform.system", return_value=system
+            with (
+                self.subTest(system=system),
+                patch("thumbtalk_platform.platform.system", return_value=system),
             ):
                 keyboard, sleep = Mock(), Mock()
                 delivery = KeyboardDelivery(keyboard, sleep=sleep)
@@ -214,7 +219,7 @@ class SubmissionTests(unittest.TestCase):
                 keyboard.press.assert_not_called()
                 sleep.assert_not_called()
 
-    def test_legacy_transfer_survives_frame_phase_offsets(self):
+    def test_clipboard_transfer_survives_frame_phase_offsets(self):
         # State-sampled controls plus frame-dispatched text: exercise phase
         # boundaries, not only that calls occur in the expected order. This
         # deliberately does not model protected UI or concurrent physical keys.
@@ -306,20 +311,15 @@ class SubmissionTests(unittest.TestCase):
                         for message in ("/s Move left! æøå 😀", "/g Next pull"):
                             started = game.now
                             delivery._command(message, lambda: True)
-                            self.assertLess(
-                                game.now - started,
-                                0.30 if system == "Windows" else 0.50,
-                            )
-                            self.assertEqual(
-                                game.focused, True, (system, fps, phase)
-                            )
+                            self.assertLess(game.now - started, 0.60)
+                            self.assertEqual(game.focused, True, (system, fps, phase))
                             self.assertEqual(game.text, "")
                     self.assertEqual(
                         game.messages, ["/s Move left! æøå 😀", "/g Next pull"]
                     )
                     self.assertEqual(game.held, set())
 
-    def test_native_commands_use_slash_and_one_text_batch_then_enter(self):
+    def test_native_commands_paste_full_text_before_enter_without_letter_packets(self):
         for system in ("Darwin", "Windows"):
             keyboard, clipboard, writer = Mock(), Mock(), Mock()
             clipboard.acquire.return_value = "lease"
@@ -334,19 +334,21 @@ class SubmissionTests(unittest.TestCase):
                 delivery._command("/s hello æøå", lambda: True)
             if system == "Windows":
                 keyboard.slash.assert_called_once()
-                writer.text.assert_called_once_with("s hello æøå")
-                clipboard.acquire.assert_not_called()
+                writer.text.assert_not_called()
+                self.assertEqual(clipboard.arm.call_count, 2)
                 self.assertEqual(
-                    [c.args[0] for c in keyboard.press.call_args_list], ["ENTER"]
+                    [c.args[0] for c in keyboard.press.call_args_list],
+                    ["CTRL_L", "v", "ENTER"],
                 )
             else:
-                clipboard.acquire.assert_called_once_with("s hello æøå")
-                clipboard.restore.assert_called_once_with("lease")
                 modifier = "CMD" if system == "Darwin" else "CTRL_L"
                 self.assertEqual(
                     [c.args[0] for c in keyboard.press.call_args_list],
                     ["/", modifier, "v", "ENTER"],
                 )
+            clipboard.acquire.assert_called_once_with("s hello æøå")
+            clipboard.restore.assert_called_once_with("lease")
+            clipboard.wait_for_read.assert_not_called()
 
     def test_send_opens_chat_once_and_never_injects_cleanup_slash_or_escape(self):
         for system in ("Windows", "Darwin"):
@@ -363,6 +365,7 @@ class SubmissionTests(unittest.TestCase):
             pressed = [c.args[0] for c in keyboard.press.call_args_list]
             self.assertEqual(pressed.count("ENTER"), 1)
             self.assertNotIn("ESC", pressed)
+            self.assertNotIn("F9", pressed)
             if system == "Windows":
                 keyboard.slash.assert_called_once()
             else:
@@ -387,6 +390,8 @@ class SubmissionTests(unittest.TestCase):
 
                 def press(self, key):
                     self.keys.append(key)
+                    if key == "v":
+                        self.insert(self.clipboard)
                     if key == "ENTER" and self.focused:
                         self.submitted.append(self.text)
                         self.text, self.focused = "", retain_focus
@@ -398,9 +403,14 @@ class SubmissionTests(unittest.TestCase):
                     assert self.focused, "Text arrived outside chat"
                     self.text += text
 
+                def acquire(self, text):
+                    self.clipboard = text
+                    return "lease"
+
             window = ChatWindow()
-            delivery = KeyboardDelivery(window, sleep=lambda _: None)
-            delivery.text_writer = SimpleNamespace(text=window.insert)
+            delivery = KeyboardDelivery(
+                window, sleep=lambda _: None, clipboard=Mock(acquire=window.acquire)
+            )
             with (
                 patch("thumbtalk_platform.platform.system", return_value="Windows"),
                 patch.dict(sys.modules, {"pynput.keyboard": self.key_module()}),
@@ -424,7 +434,9 @@ class SubmissionTests(unittest.TestCase):
     def test_autocomplete_can_consume_enter_without_delivery_ack(self):
         logs = []
         keyboard = Mock()
-        delivery = KeyboardDelivery(keyboard, sleep=lambda _: None, log=logs.append)
+        delivery = KeyboardDelivery(
+            keyboard, sleep=lambda _: None, log=logs.append, clipboard=Mock()
+        )
         # This editor consumes Enter; returning from native input is not receipt.
         delivery.text_writer = Mock()
         with (
@@ -490,6 +502,35 @@ class SubmissionTests(unittest.TestCase):
         clipboard.restore.assert_called_once()
         self.assertIn("stopped during insert", logs[-1])
         self.assertNotIn("private message", " ".join(logs))
+
+    def test_windows_changed_clipboard_or_player_input_never_submits(self):
+        for failure in ("clipboard", "input"):
+            keyboard, clipboard = Mock(), Mock()
+            ready = True
+
+            def settle(seconds):
+                nonlocal ready
+                if keyboard.press.call_args and keyboard.press.call_args.args == ("v",):
+                    if failure == "input":
+                        ready = False
+
+            if failure == "clipboard":
+                clipboard.arm.side_effect = [None, RuntimeError("clipboard changed")]
+            with (
+                patch("thumbtalk_platform.platform.system", return_value="Windows"),
+                patch.dict(sys.modules, {"pynput.keyboard": self.key_module()}),
+            ):
+                delivery = KeyboardDelivery(keyboard, sleep=settle, clipboard=clipboard)
+                with self.assertRaises(RuntimeError):
+                    delivery.send(lambda: ready, "/s private words")
+            pressed = [c.args[0] for c in keyboard.press.call_args_list]
+            self.assertEqual(pressed, ["CTRL_L", "v"])
+            self.assertEqual(
+                [c.args[0] for c in keyboard.release.call_args_list], ["v", "CTRL_L"]
+            )
+            clipboard.restore.assert_called_once()
+            clipboard.wait_for_read.assert_not_called()
+            self.assertIsNone(delivery.pending_text)
 
     def test_pacing_overrides_and_logs_do_not_change_message_or_submit_twice(self):
         for system in ("Darwin", "Windows"):
@@ -587,6 +628,7 @@ class SubmissionTests(unittest.TestCase):
         self.assertFalse(
             any(c.args[0].startswith("/ttr") for c in delivery._command.call_args_list)
         )
+        delivery._review_signal.assert_not_called()
 
     def test_cancel_clears_only_local_review_without_chat_input(self):
         delivery = KeyboardDelivery(Mock())

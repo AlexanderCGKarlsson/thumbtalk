@@ -266,9 +266,11 @@ class ChatTiming:
 
     @classmethod
     def from_environment(cls):
-        # Clipboard transfer is asynchronous on X11/macOS. Retain its proven
-        # settling time; a short key dispatch does not mean paste has completed.
-        values = {"insert_delay": 0.05 if platform.system() == "Windows" else 0.20}
+        # Clipboard transfer is asynchronous. A dispatched shortcut does not
+        # mean the target has inserted the text yet.
+        values = {"insert_delay": 0.20}
+        if platform.system() == "Windows":
+            values["open_delay"] = 0.12
         for name in cls.__dataclass_fields__:
             key = "THUMBTALK_CHAT_" + name.upper()
             if key in os.environ:
@@ -477,21 +479,13 @@ class KeyboardDelivery:
                 lambda message: self.log(f"Chat command {number}: {message}"),
             )
         windows = platform.system() == "Windows"
-        lease = None
-        if windows:
-            if self.text_writer is None:
-                from thumbtalk_windows_text import WindowsTextWriter
+        if self.clipboard is None or getattr(self.clipboard, "closed", False) is True:
+            from thumbtalk_clipboard import ClipboardLease
 
-                self.text_writer = WindowsTextWriter()
-        else:
-            if (
-                self.clipboard is None
-                or getattr(self.clipboard, "closed", False) is True
-            ):
-                from thumbtalk_clipboard import ClipboardLease
-
-                self.clipboard = ClipboardLease()
-            lease = self.clipboard.acquire(text[1:])
+            self.clipboard = ClipboardLease()
+        # Prepare before opening chat, so a clipboard failure sends no keys.
+        # The native slash binding contributes the first character itself.
+        lease = self.clipboard.acquire(text[1:])
         self.command_number += 1
         number = self.command_number
         phase = "open"
@@ -502,26 +496,13 @@ class KeyboardDelivery:
             phase = "insert"
             self.log(f"Chat command {number}: insert requested")
             if windows:
-                for character in text[1:]:
-                    self.on_key(character)
-                    if ord(character) > 0xFFFF:
-                        encoded = character.encode("utf-16-le")
-                        for offset in (0, 2):
-                            self.on_key(
-                                chr(
-                                    int.from_bytes(
-                                        encoded[offset : offset + 2], "little"
-                                    )
-                                )
-                            )
-                if not guard():
-                    raise DeliveryStopped(
-                        "Text insertion stopped because focus or controls changed."
-                    )
-                self.text_writer.text(text[1:])
-            else:
-                self._paste(guard)
+                self.clipboard.arm(lease)
+            self._paste(guard)
             self.sleep(self.timing.insert_delay)
+            if windows:
+                # Check the clipboard has not changed; this is not a delivery
+                # acknowledgement and never waits for a clipboard-read reply.
+                self.clipboard.arm(lease)
             phase = "submit"
             self.log(f"Chat command {number}: submit requested")
             self._chat_key(Key.enter, guard)
@@ -529,9 +510,9 @@ class KeyboardDelivery:
             self.log(
                 f"Chat command {number}: native input completed; delivery and editor focus unconfirmed"
             )
-        except Exception:
+        except Exception as error:
             self.log(
-                f"Chat command {number}: stopped during {phase}; no automatic retry"
+                f"Chat command {number}: stopped during {phase}; {error}; no automatic retry"
             )
             if lease is not None:
                 try:
@@ -608,7 +589,7 @@ class KeyboardDelivery:
         # Native submission owns editor cleanup. Opening / again after Enter
         # can recreate the very chat prompt we are trying to dismiss. Do not
         # guess at editor state with an extra slash or Escape.
-        if had_review or platform.system() != "Linux":
+        if had_review:
             if platform.system() == "Linux":
                 self.sleep(self.timing.settle_delay)
             self._review_signal(Key.f9, guard)

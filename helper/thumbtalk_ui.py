@@ -64,6 +64,7 @@ from thumbtalk_input import InputHub, Learner
 from thumbtalk_models import CATALOG, ModelDownloads, model_downloaded
 from thumbtalk_pipewire import SYSTEM_AUDIO, available as pipewire_available
 from thumbtalk_runtime import Runtime, Recorder
+from thumbtalk_diagnostics import DeliveryLog
 from thumbtalk_audio import (
     play_recording,
     audio_stats,
@@ -957,6 +958,10 @@ class Setup(QMainWindow):
         self.back_button.clicked.connect(lambda: self.move_step(-1))
         row.addWidget(self.back_button)
         row.addStretch()
+        self.log_button = QPushButton("Open delivery log")
+        self.log_button.setObjectName("quiet")
+        self.log_button.clicked.connect(self.open_delivery_log)
+        row.addWidget(self.log_button)
         self.next_button = QPushButton()
         self.next_button.setObjectName("primary")
         self.next_button.clicked.connect(lambda: self.move_step(1))
@@ -981,6 +986,19 @@ class Setup(QMainWindow):
         self.updates_dialog.raise_()
         self.updates_dialog.activateWindow()
         self.updates_dialog.start_check()
+
+    def open_delivery_log(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        path = self.path.with_name("delivery.log")
+        if not path.is_file():
+            self.confirmation(
+                "Delivery log",
+                "Start the companion and try a message first. Delivery errors will be saved here.",
+            )
+        elif not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path.resolve()))):
+            self.error("Could not open the delivery log: " + str(path))
 
     def update_navigation(self):
         index = self.pages.currentIndex()
@@ -2487,6 +2505,7 @@ class Setup(QMainWindow):
                 save_preferences=(lambda *_: None)
                 if practice
                 else self.save_game_preferences,
+                log=DeliveryLog(self.path.with_name("delivery.log")),
             )
             self.practice_button.setEnabled(False)
             self.test_talk.setText("Preparing speech… please wait")
@@ -2728,6 +2747,7 @@ def run_app(path, speech, chat, headless=False, practice=False, startup=False):
             chat,
             notify,
             practice=practice,
+            log=DeliveryLog(path.with_name("delivery.log")),
             save_preferences=(lambda *_: None)
             if practice
             else (

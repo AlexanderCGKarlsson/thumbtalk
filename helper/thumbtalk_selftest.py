@@ -1237,6 +1237,7 @@ def windows_test_editor():
 
     class NativeEditor:
         def __init__(self):
+            self.accept_unicode_packets = True
             self.h = u.CreateWindowExW(
                 0,
                 "EDIT",
@@ -1254,6 +1255,12 @@ def windows_test_editor():
             assert self.h, ctypes.get_last_error()
 
             def proc(hwnd, msg, wp, lp):
+                if (
+                    msg in (0x100, 0x101)
+                    and wp == 0xE7
+                    and not self.accept_unicode_packets
+                ):
+                    return 0
                 if msg in (0x100, 0x101, 0x104, 0x105) and 0x74 <= wp <= 0x7B:
                     return 0
                 return u.CallWindowProcW(self.original, hwnd, msg, wp, lp)
@@ -1295,7 +1302,12 @@ def windows_test_editor():
         def pump(self):
             msg = w.MSG()
             while u.PeekMessageW(ctypes.byref(msg), self.h, 0, 0, 1):
-                u.TranslateMessage(ctypes.byref(msg))
+                if (
+                    self.accept_unicode_packets
+                    or msg.wParam != 0xE7
+                    or msg.message not in (0x100, 0x101)
+                ):
+                    u.TranslateMessage(ctypes.byref(msg))
                 u.DispatchMessageW(ctypes.byref(msg))
 
     return NativeEditor()
@@ -1374,6 +1386,9 @@ def check_windows_text(app):
         assert packets == [0x7A, 0x7A, 0x7B, 0x7B], packets
         # This checks the OS input path in a normal editor, not WoW's security model.
         editor.clear()
+        # A normal EDIT accepts VK_PACKET, but games need not. Verify the
+        # actual command path still inserts accents and emoji without them.
+        editor.accept_unicode_packets = False
         packets.clear()
 
         clipboard = app.clipboard()
@@ -1408,6 +1423,9 @@ def check_windows_text(app):
             or editor.toPlainText()
             != "/ttr aabbccdd 1 1 2f73204d6f7665206c6566742120c3a6c3b8c3a520f09f9880\n/s Move left! æøå 😀\n"
         ) and time.monotonic() < deadline:
+            # The clipboard snapshot belongs to this Qt thread; service its
+            # requests while the delivery worker and native editor run.
+            app.processEvents()
             editor.pump()
             hub.poll()
             time.sleep(0.01)
@@ -1427,13 +1445,11 @@ def check_windows_text(app):
         for key in (0x78, 0x79):  # local review submitted/discarded, no editor mutation
             assert packets.count(key) == 2, packets
         assert 0x74 not in packets and 0x75 not in packets, "Old focus signals remain"
-        assert 0x56 not in packets, "Windows text delivery used a V shortcut"
-        assert delivery.clipboard is None, (
-            "Windows text insertion touched the clipboard"
-        )
+        assert packets.count(0x56) == 4, "Expected one paste per command"
+        assert 0xE7 not in packets, "Chat still depends on VK_PACKET handling"
         assert not hub.physical_modifiers and hub.activity.text_ready(version)
         print(
-            "Windows native slash, local-review transport, Unicode send without reopening chat and unchanged clipboard with analog movement held passed.",
+            "Windows native paste, local-review transport, restored clipboard and input guard with analog movement held passed.",
             flush=True,
         )
         print(
