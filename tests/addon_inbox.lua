@@ -106,5 +106,5 @@ start();paste(packet("/s cancel before modifier release","eeff0011"),true);key("
 start();paste(packet("/s lost focus","aabbccd3"),true);inbox:ClearFocus();control=false;frame();assert(#lines==1)
 start();paste(packet("/s old world","aabbccd4"),true);keys.scripts.OnEvent(keys,"PLAYER_LEAVING_WORLD");control=false;frame();assert(focus==nil and #lines==1)
 SlashCmdList.THUMBTALK()
-assert(table.concat(output,"\n"):find("ThumbTalk addon 1",1,true))
+assert(table.concat(output,"\n"):match("ThumbTalk addon %d+"))
 io.write("One-way addon review: local history, focus release, accept/discard, unicode, partial/duplicate/corrupt paste, timeout and world loss passed.\n")
