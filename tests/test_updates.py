@@ -178,16 +178,5 @@ class UpdateTests(unittest.TestCase):
         self.assertIn(f"## Version: {VERSION}-build{TEST_BUILD}", toc)
         addon = (root / "addon/ThumbTalk/ThumbTalk.lua").read_text()
         self.assertIn(f'local ADDON_BUILD = "{TEST_BUILD}"', addon)
-        for name in (
-            "install.sh",
-            "install.ps1",
-            "Install-ThumbTalk.cmd",
-            "Install-ThumbTalk.desktop",
-        ):
-            with self.subTest(installer=name):
-                self.assertIn(
-                    RELEASES_URL + f"/download/v{VERSION}/"
-                    if name.startswith("Install-")
-                    else RELEASES_URL + f"/download/v{VERSION}",
-                    (root / name).read_text(),
-                )
+        # Installers now resolve GitHub releases dynamically; their source
+        # intentionally has no pinned version to compare with this build.

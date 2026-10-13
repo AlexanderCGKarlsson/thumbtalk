@@ -5,6 +5,7 @@ from __future__ import annotations
 import queue
 import gc
 import math
+import platform
 import threading
 import time
 from dataclasses import asdict, replace
@@ -189,6 +190,7 @@ class Runtime:
         transcriber_factory=create_transcriber,
         model_available=model_downloaded,
         save_preferences=lambda speech_changes, chat_changes: None,
+        log=None,
     ):
         self.chat, self.speech = chat, speech
         self.transcriber_factory = transcriber_factory
@@ -196,6 +198,14 @@ class Runtime:
         self.save_preferences = save_preferences
         self.available_models = ()
         self.notify, self.show_transcript, self.practice = notify, transcript, practice
+        self.log = log or (
+            lambda message: print(time.strftime("%H:%M:%S"), message, flush=True)
+        )
+        from thumbtalk_version import VERSION, TEST_BUILD
+
+        self.log(
+            f"ThumbTalk {VERSION} build {TEST_BUILD}; {platform.system()}; {'practice' if practice else 'game'} session"
+        )
         self.hub = hub or InputHub()
         self.own_hub = hub is None
         if self.hub.error and any("key:" in value for value in chat.bindings.values()):
@@ -215,9 +225,7 @@ class Runtime:
                 if practice
                 else KeyboardDelivery(
                     on_key=self.hub.expect_injected,
-                    log=lambda message: print(
-                        time.strftime("%H:%M:%S"), message, flush=True
-                    ),
+                    log=self.log,
                 )
             )
         except Exception:
@@ -639,6 +647,7 @@ class Runtime:
             if token != self.session.generation:
                 continue
             if error:
+                self.log(f"{kind} failed: {error}")
                 if kind == "drafted":
                     # Some text may already be in WoW. Keep cancellation available,
                     # but never retry typing or submit an incomplete draft.
@@ -703,6 +712,7 @@ class Runtime:
                 self.deferred = (action, time.monotonic())
                 if not self.input_wait_notified:
                     self.input_wait_notified = True
+                    self.log("Delivery postponed: waiting for button release.")
                     self.notify(
                         "Waiting for button release to enter chat. You can keep moving."
                     )
@@ -894,15 +904,23 @@ class Runtime:
         token = self.session.generation
         activity = None if self.practice else getattr(self.hub, "activity", None)
         activity_version = activity.button_version if activity is not None else None
+        guard_failure = None
 
         def guard():
-            return (
-                (activity is None or activity.text_ready(activity_version))
-                and not self.abort.is_set()
-                and not self.closed
-                and not self.hub.physical_modifiers
-                and self.current_target() == target
-            )
+            nonlocal guard_failure
+            reason = None
+            if activity is not None and not activity.text_ready(activity_version):
+                reason = "player button input changed or is still held"
+            elif self.abort.is_set() or self.closed:
+                reason = "delivery cancelled"
+            elif self.hub.physical_modifiers:
+                reason = "a modifier key is held"
+            elif self.current_target() != target:
+                reason = "WoW lost foreground focus"
+            if reason and reason != guard_failure:
+                self.log("Delivery stopped: " + reason)
+                guard_failure = reason
+            return reason is None
 
         def deliver(operation, *args):
             if self.practice:

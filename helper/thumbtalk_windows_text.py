@@ -84,14 +84,16 @@ class WindowsTextWriter:
 
 
 class WindowsControlKeys:
-    """Tagged control keys for the companion's Enter and addon signals."""
+    """Tagged control keys for Enter, the paste shortcut and addon signals."""
 
     def __init__(self, writer=None):
         self.writer = writer or WindowsTextWriter()
 
     def _send(self, key, released):
         value = getattr(key, "value", key)
-        vk = getattr(value, "vk", None)
+        # V is a shortcut key only. Transcript characters still must never
+        # become physical letter keys that could trigger gameplay bindings.
+        vk = 0x56 if key == "v" else getattr(value, "vk", None)
         if vk is None:
             raise ValueError("Only explicit Windows control keys are supported.")
         event = Input(
