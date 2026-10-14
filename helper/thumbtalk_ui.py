@@ -1038,7 +1038,9 @@ class Setup(QMainWindow):
                 "Choose buttons →",
                 "Choose chat →",
                 "Connect WoW →",
-                "Save && finish",
+                "Save && minimize"
+                if platform.system() == "Windows"
+                else "Save && finish",
             )[index]
         )
 
@@ -1061,7 +1063,16 @@ class Setup(QMainWindow):
             self.hub.close()
             self.hub = None
         if index == self.pages.count():
-            self.close()
+            if platform.system() == "Windows":
+                # Setup has already saved and stopped its voice test. Keep the
+                # actual companion running for WoW launched through Battle.net.
+                self.start_runtime(False, use_saved=True)
+                if self.runtime:
+                    self.showMinimized()
+            else:
+                # Steam's Linux launch wrapper starts its own companion in the
+                # game's display session, which can differ from the desktop.
+                self.close()
             return
         self.pages.setCurrentIndex(max(0, index))
         self.update_navigation()
@@ -1076,7 +1087,9 @@ class Setup(QMainWindow):
                 "Start the voice test, then tap Record. Say a sentence and tap Stop recording.",
                 "Press a rear button now. Detected buttons will appear here.",
                 "Choose where your first message should go.",
-                "Save your settings, then follow the WoW connection steps above.",
+                "Save to keep ThumbTalk running minimized, then open WoW normally."
+                if platform.system() == "Windows"
+                else "Save your settings, then follow the WoW connection steps above.",
             )[self.pages.currentIndex()]
         )
 
@@ -2018,7 +2031,10 @@ class Setup(QMainWindow):
             launch = self.extra_options(launch, "Using another launcher? ▾")
         launch.addWidget(
             paragraph(
-                "Start ThumbTalk, then open WoW. Leave ThumbTalk running while you play."
+                "Save & minimize keeps ThumbTalk running. Then open WoW normally through Battle.net. "
+                "Enable Start with Windows below to keep it ready after signing in."
+                if platform.system() == "Windows"
+                else "Start ThumbTalk, then open WoW. Leave ThumbTalk running while you play."
             )
         )
         start = QPushButton("Start ThumbTalk for WoW")

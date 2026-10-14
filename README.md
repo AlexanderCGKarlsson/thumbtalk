@@ -159,7 +159,11 @@ it is not a signing certificate. Do not disable Windows security globally.
 5. **WoW:** select your game client and **Install addon**. Repeat for every Retail,
    Classic or beta client you play, then follow the connection instructions below.
 
-**Next** saves each step. Choose **Save & finish** when done. After updating,
+**Next** saves each step. On Windows, the upcoming 0.8.3 build 4 changes the final
+button to **Save & minimize**: it saves your settings and starts the companion,
+ready for WoW. On 0.8.2 and earlier, choose **Start ThumbTalk for WoW** to keep it
+running; **Save & finish** exits the app. On Linux, **Save & finish** closes setup;
+the Steam launch option starts the companion with your game. After updating,
 install the matching addon again and fully restart WoW.
 
 <details>
@@ -191,6 +195,10 @@ profile used in setup and the profile used in WoW.
 Use **Gamepad / Spillkontroller** mode while playing. Return to ThumbTalk's
 **Buttons → Change → Listen for a button…**, press each button and save.
 Start **ThumbTalk for WoW**, keep it running, and launch WoW through Battle.net.
+With the upcoming **Save & minimize** button, finishing setup also starts the
+companion. Restore its window from the taskbar to change settings; closing the
+window with **X** quits ThumbTalk. Launching WoW by itself does not start a closed
+Windows companion.
 
 Enable **Start with Windows** in the WoW setup step to launch the companion
 minimized at sign-in. It is optional and off by default. Download your model and

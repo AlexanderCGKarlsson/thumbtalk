@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helper"))
 import sounddevice  # Load the host audio library before mocking the UI platform.
@@ -141,6 +141,76 @@ class SettingsParityTests(unittest.TestCase):
                     self.assertEqual(window.languages.isEnabled(), not automatic)
                     self.assertEqual(speech.language, None if automatic else "no")
                     self.assertEqual(chat.languages, ("en", "no", "sv"))
+
+    def test_windows_finish_saves_starts_game_companion_and_minimizes(self):
+        with self.setup_for("Windows") as window:
+            window.pages.setCurrentIndex(4)
+            window.update_navigation()
+            self.assertEqual(window.next_button.text(), "Save && minimize")
+            window.show()
+            window.channel.setCurrentIndex(window.channel.findData("guild"))
+            # Finish must replace a running voice test with the game runtime.
+            practice = Mock()
+            window.runtime = practice
+            with (
+                patch("thumbtalk_ui.Runtime") as runtime,
+                patch.object(window, "ensure_hub"),
+                patch("thumbtalk_startup.set_startup") as register,
+            ):
+                window.next_button.click()
+                self.assertTrue(window.isMinimized())
+                practice.close.assert_called_once()
+                self.assertIs(window.runtime, runtime.return_value)
+                runtime.return_value.close.assert_not_called()
+                self.assertFalse(runtime.call_args.kwargs["practice"])
+                self.assertEqual(runtime.call_args.args[1].channel, "guild")
+                self.assertEqual(read_config(window.path)["chat"]["channel"], "guild")
+                self.assertIsNotNone(window.runtime_lock)
+                register.assert_not_called()  # Windows sign-in remains opt-in.
+                window.close()
+                runtime.return_value.close.assert_called_once()
+                self.assertIsNone(window.runtime_lock)
+
+    def test_windows_finish_stays_visible_if_model_or_runtime_is_unavailable(self):
+        for failure in ("model", "runtime"):
+            with self.subTest(failure=failure), self.setup_for("Windows") as window:
+                window.pages.setCurrentIndex(4)
+                window.show()
+                with (
+                    patch("thumbtalk_ui.model_downloaded", return_value=failure != "model"),
+                    patch("thumbtalk_ui.Runtime", side_effect=RuntimeError("Cannot start")),
+                    patch.object(window, "ensure_hub"),
+                    patch.object(window, "error") as error,
+                ):
+                    window.next_button.click()
+                    self.assertTrue(window.isVisible())
+                    self.assertFalse(window.isMinimized())
+                    self.assertIsNone(window.runtime)
+                    self.assertIsNone(window.runtime_lock)
+                    error.assert_called_once()
+
+    def test_windows_finish_does_not_hide_or_stop_runtime_when_save_fails(self):
+        with self.setup_for("Windows") as window:
+            window.pages.setCurrentIndex(4)
+            window.show()
+            active = Mock()
+            window.runtime = active
+            with patch.object(window, "save", return_value=False):
+                window.next_button.click()
+                self.assertTrue(window.isVisible())
+                self.assertFalse(window.isMinimized())
+                active.close.assert_not_called()
+
+    def test_linux_finish_closes_setup_for_steam_launch_wrapper(self):
+        with self.setup_for("Linux") as window:
+            window.pages.setCurrentIndex(4)
+            window.update_navigation()
+            self.assertEqual(window.next_button.text(), "Save && finish")
+            window.show()
+            with patch("thumbtalk_ui.Runtime") as runtime:
+                window.next_button.click()
+                self.assertFalse(window.isVisible())
+                runtime.assert_not_called()
 
     def test_overlay_modes_and_positions_can_be_saved_on_both_platforms(self):
         case = self
