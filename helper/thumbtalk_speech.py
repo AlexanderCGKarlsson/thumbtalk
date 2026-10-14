@@ -169,9 +169,9 @@ def resolve_settings(path: Path, **overrides) -> SpeechSettings:
     values = asdict(SpeechSettings())
     values.update(PRESETS[preset])
     values.update(saved)
-    # An explicitly selected preset resets model/threads, retaining language/device.
+    # Model choices retain the user's CPU budget, language, and device.
     if overrides.get("preset") is not None:
-        values.update(PRESETS[preset])
+        values["model"] = PRESETS[preset]["model"]
     values.update({key: value for key, value in overrides.items() if value is not None})
     values["preset"] = preset
     values["language"] = normalize_language(values["language"])

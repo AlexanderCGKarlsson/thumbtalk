@@ -890,6 +890,7 @@ class Setup(QMainWindow):
         self.downloads = None
         self.available_models = set()
         self.comparison = None
+        self.comparing_cpu = False
         self.playback_until = 0
         self.recording_details_key = None
         self.wow_results = Queue()
@@ -981,7 +982,9 @@ class Setup(QMainWindow):
         from thumbtalk_updates_ui import UpdateDialog
 
         if not getattr(self, "updates_dialog", None):
-            self.updates_dialog = UpdateDialog(self, prepare_install=self.prepare_update_install)
+            self.updates_dialog = UpdateDialog(
+                self, prepare_install=self.prepare_update_install
+            )
         self.updates_dialog.show()
         self.updates_dialog.raise_()
         self.updates_dialog.activateWindow()
@@ -996,7 +999,9 @@ class Setup(QMainWindow):
             lock = acquire_lock(self.path)
             lock.unlock()
         except RuntimeError:
-            self.error("Close WoW and the other ThumbTalk companion before installing an update.")
+            self.error(
+                "Close WoW and the other ThumbTalk companion before installing an update."
+            )
             return False
         return True
 
@@ -1243,6 +1248,27 @@ class Setup(QMainWindow):
         self.language.currentIndexChanged.connect(self.favorite_starting_language)
         self.update_favorites_summary()
         advanced = self.extra_options(layout, "Advanced speech · download models ▾")
+        cpu_row = QHBoxLayout()
+        cpu_row.addWidget(QLabel("Speech CPU usage"))
+        self.cpu_threads = Select()
+        self.cpu_threads.setObjectName("speechCpuThreads")
+        self.cpu_threads.addItem("Lower CPU use · 2 threads (default)", 2)
+        self.cpu_threads.addItem("More CPU · 4 threads", 4)
+        if self.cpu_threads.findData(self.speech.cpu_threads) < 0:
+            self.cpu_threads.addItem(
+                f"Custom · {self.speech.cpu_threads} threads", self.speech.cpu_threads
+            )
+        self.cpu_threads.setCurrentIndex(
+            self.cpu_threads.findData(self.speech.cpu_threads)
+        )
+        cpu_row.addWidget(self.cpu_threads, 1)
+        advanced.addLayout(cpu_row)
+        advanced.addWidget(
+            paragraph(
+                "Four threads may finish recognition sooner but use more CPU while you play. "
+                "In Try it → Audio options, compare CPU speeds with the same recording before choosing."
+            )
+        )
         advanced.addWidget(
             paragraph(
                 "Tick every model you want to download. Only the model you use is loaded into memory."
@@ -1273,6 +1299,7 @@ class Setup(QMainWindow):
         layout.addWidget(self.model_note)
         self.refresh_models()
         self.preset.currentIndexChanged.connect(self.update_model_options)
+        self.cpu_threads.currentIndexChanged.connect(self.update_model_options)
         self.update_model_options()
         layout.addStretch()
 
@@ -1371,7 +1398,7 @@ class Setup(QMainWindow):
             "Whisper Small lets you explicitly choose your spoken language."
             if automatic
             else self.preset.currentText()
-            + " · local CPU · two inference threads. Choose your spoken language for a more consistent test."
+            + f" · local CPU · {self.cpu_threads.currentData()} inference threads. Choose your spoken language for a more consistent test."
         )
 
     def practice_page(self):
@@ -1456,6 +1483,12 @@ class Setup(QMainWindow):
         self.compare_button.setEnabled(False)
         self.compare_button.clicked.connect(self.start_comparison)
         audio_layout.addWidget(self.compare_button)
+        self.compare_cpu_button = QPushButton("Compare CPU speeds")
+        self.compare_cpu_button.setEnabled(False)
+        self.compare_cpu_button.clicked.connect(
+            lambda: self.start_comparison(compare_cpu=True)
+        )
+        audio_layout.addWidget(self.compare_cpu_button)
         self.compare_status = paragraph("")
         audio_layout.addWidget(self.compare_status)
         self.audio_options = QPushButton("Audio options…")
@@ -1482,10 +1515,11 @@ class Setup(QMainWindow):
         audio_layout.addWidget(self.compare_panel)
         audio_layout.addStretch()
 
-    def start_comparison(self):
+    def start_comparison(self, checked=False, *, compare_cpu=False):
         if self.comparison:
             self.comparison.cancel()
             self.compare_button.setEnabled(False)
+            self.compare_cpu_button.setEnabled(False)
             self.compare_status.setText("Stopping comparison…")
             return
         if (
@@ -1501,14 +1535,22 @@ class Setup(QMainWindow):
         try:
             from thumbtalk_compare import CANDIDATES
 
-            installed = [p for p in CANDIDATES if model_downloaded(p)]
-            if len(installed) < 2:
+            installed = (
+                [self.runtime.speech.preset]
+                if compare_cpu
+                else [p for p in CANDIDATES if model_downloaded(p)]
+            )
+            if not compare_cpu and len(installed) < 2:
                 self.error(
                     "Download at least two models in Advanced speech to compare them."
                 )
                 return
             comparison = Comparison(
-                self.runtime.last_audio, self.speech.language, presets=installed
+                self.runtime.last_audio,
+                self.runtime.record_language,
+                presets=installed,
+                cpu_threads=self.runtime.speech.cpu_threads,
+                compare_cpu=compare_cpu,
             )
             self.stop_runtime()
             self.model_cache.clear()
@@ -1517,16 +1559,24 @@ class Setup(QMainWindow):
                 self.compare_layout.takeAt(0).widget().deleteLater()
             self.compare_layout.addWidget(
                 paragraph(
-                    "Same recording · downloaded models only · one model at a time. "
+                    "Same recording and model · 2 versus 4 CPU threads · normal priority. "
+                    "Keep the same power mode and WoW scene for both tests. Compare speed, words, and gameplay smoothness before choosing."
+                    if compare_cpu
+                    else "Same recording · downloaded models only · one model at a time. "
                     "Minimize ThumbTalk and play the same WoW scene to check for stutter; return here for results."
                 )
             )
             self.comparison = comparison
+            self.comparing_cpu = compare_cpu
             self.practice_button.setEnabled(False)
             self.back_button.setEnabled(False)
             self.next_button.setEnabled(False)
-            self.compare_button.setText("Cancel comparison")
-            self.compare_button.setEnabled(True)
+            self.compare_button.setEnabled(not compare_cpu)
+            self.compare_cpu_button.setEnabled(compare_cpu)
+            active_button = (
+                self.compare_cpu_button if compare_cpu else self.compare_button
+            )
+            active_button.setText("Cancel comparison")
             self.compare_status.setText("Preparing comparison…")
             comparison.start()
         except Exception as error:
@@ -1552,11 +1602,12 @@ class Setup(QMainWindow):
                 row = QVBoxLayout(result)
                 row.setContentsMargins(0, 8, 0, 8)
                 label = CANDIDATES[event["preset"]]
+                threads = event.get("cpu_threads", self.speech.cpu_threads)
                 row.addWidget(
                     paragraph(
-                        f"{label} · {event['warm_seconds']:.1f}s warm · {event['peak_mib']:.0f} MiB peak worker memory\n"
+                        f"{label} · {threads} threads · {event['warm_seconds']:.1f}s warm · {event['peak_mib']:.0f} MiB peak worker memory\n"
                         f"First transcription {event['first_seconds']:.1f}s · CPU {event['cpu_percent']:.0f}% (100% = one core)\n"
-                        f"Preparation {event['load_seconds']:.1f}s, including any download"
+                        f"Model preparation {event['load_seconds']:.1f}s · downloaded models only"
                     )
                 )
                 transcript = QTextEdit()
@@ -1570,32 +1621,61 @@ class Setup(QMainWindow):
                             "The repeated passes produced different words. Try this model again before choosing it."
                         )
                     )
-                if not event["background_priority"]:
+                if not event["background_priority"] and not self.comparing_cpu:
                     row.addWidget(
                         paragraph(
                             "The operating system did not allow background priority."
                         )
                     )
-                choose = QPushButton("Use " + label)
-                choose.clicked.connect(
-                    lambda checked=False,
-                    preset=event["preset"]: self.choose_compared_model(preset)
+                choose = QPushButton(
+                    f"Use {threads} CPU threads"
+                    if self.comparing_cpu
+                    else "Use " + label
                 )
+                if self.comparing_cpu:
+                    choose.clicked.connect(
+                        lambda checked=False,
+                        value=threads: self.choose_compared_threads(value)
+                    )
+                else:
+                    choose.clicked.connect(
+                        lambda checked=False,
+                        preset=event["preset"]: self.choose_compared_model(preset)
+                    )
                 row.addWidget(choose)
                 self.compare_layout.addWidget(result)
             elif kind == "done":
                 self.comparison = None
                 self.compare_button.setText("Compare models")
                 self.compare_button.setEnabled(False)
+                self.compare_cpu_button.setText("Compare CPU speeds")
+                self.compare_cpu_button.setEnabled(False)
                 self.practice_button.setEnabled(True)
                 self.update_navigation()
                 self.next_button.setEnabled(True)
                 self.compare_status.setText(
                     "Comparison stopped. Record again to retry."
                     if event["cancelled"]
+                    else "Compare the words and timings, then choose a CPU setting. Check WoW for stutter too; four threads are not always faster."
+                    if self.comparing_cpu
                     else "Compare the words you actually said, then choose a model. Memory above is the speech worker only; check WoW for stutter too."
                 )
                 break
+
+    def choose_compared_threads(self, threads):
+        if self.comparison:
+            self.compare_status.setText(
+                "Wait for the comparison to finish, or cancel it first."
+            )
+            return
+        index = self.cpu_threads.findData(threads)
+        if index < 0:
+            return
+        self.cpu_threads.setCurrentIndex(index)
+        if self.save():
+            self.compare_status.setText(
+                "CPU setting saved. Start a voice test or finish setup to apply it."
+            )
 
     def choose_compared_model(self, preset):
         if self.comparison:
@@ -1653,6 +1733,7 @@ class Setup(QMainWindow):
             and not runtime.busy
             and runtime.session.state != "recording"
         )
+        self.compare_cpu_button.setEnabled(self.compare_button.isEnabled())
         self.play_recording.setEnabled(
             audio is not None
             and len(audio) > 0
@@ -2098,7 +2179,8 @@ class Setup(QMainWindow):
         speech = replace(
             self.speech,
             preset=preset,
-            **PRESETS[preset],
+            model=PRESETS[preset]["model"],
+            cpu_threads=self.cpu_threads.currentData(),
             language=None
             if preset == "parakeet"
             else normalize_language(self.language.currentData()),
@@ -2589,6 +2671,7 @@ class Setup(QMainWindow):
     def stop_runtime(self):
         self.audio_warning.hide()
         self.compare_button.setEnabled(False)
+        self.compare_cpu_button.setEnabled(False)
         self.recording_details_key = None
         self.stop_playback()
         self.play_recording.setEnabled(False)

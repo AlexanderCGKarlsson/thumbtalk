@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 import weakref
+from dataclasses import replace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helper"))
 from thumbtalk_chat import ChatSettings, load_chat, save_menu_preferences
@@ -89,6 +90,15 @@ class MenuPreferencesTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Download"):
             rt.change_model("economy")
         self.assertTrue(rt.ready)
+
+    def test_in_game_model_switch_retains_selected_cpu_budget(self):
+        rt = self.runtime()
+        rt.speech = replace(rt.speech, cpu_threads=4)
+        self.choose(rt, "model", "balanced")
+        self.wait(rt, lambda: rt.ready)
+        self.assertEqual(rt.speech.cpu_threads, 4)
+        self.assertEqual(rt.transcriber.settings.cpu_threads, 4)
+        self.assertEqual(rt.save_preferences.call_args.args[0]["cpu_threads"], 4)
 
     def test_model_load_is_async_saves_after_success_and_releases_old_weights(self):
         started, release = threading.Event(), threading.Event()

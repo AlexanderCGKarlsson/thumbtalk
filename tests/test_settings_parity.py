@@ -3,6 +3,7 @@
 from contextlib import contextmanager, ExitStack
 from dataclasses import asdict, replace
 import json
+from queue import Queue
 from pathlib import Path
 import sys
 import tempfile
@@ -142,6 +143,71 @@ class SettingsParityTests(unittest.TestCase):
                     self.assertEqual(speech.language, None if automatic else "no")
                     self.assertEqual(chat.languages, ("en", "no", "sv"))
 
+    def test_cpu_budget_is_saved_and_kept_when_selecting_models_on_both_platforms(self):
+        for system in ("Linux", "Windows"):
+            with self.subTest(system=system), self.setup_for(system) as window:
+                window.cpu_threads.setCurrentIndex(window.cpu_threads.findData(4))
+                for preset in CATALOG:
+                    window.preset.setCurrentIndex(window.preset.findData(preset))
+                    self.assertTrue(window.save())
+                    self.assertEqual(window.speech.cpu_threads, 4)
+                    self.assertEqual(
+                        read_config(window.path)["speech"]["cpu_threads"], 4
+                    )
+
+    def test_cpu_comparison_uses_recorded_language_and_requires_explicit_selection(
+        self,
+    ):
+        import numpy as np
+
+        with self.setup_for("Windows") as window:
+            audio = np.zeros(16000, dtype="float32")
+            window.runtime = Mock(
+                busy=False, last_audio=audio, speech=window.speech, record_language="sv"
+            )
+            window.runtime.session.state = "preview"
+            comparison = Mock(events=Queue())
+            with patch(
+                "thumbtalk_compare.Comparison", return_value=comparison
+            ) as factory:
+                window.start_comparison(compare_cpu=True)
+            self.assertIs(factory.call_args.args[0], audio)
+            self.assertEqual(factory.call_args.args[1], "sv")
+            self.assertTrue(factory.call_args.kwargs["compare_cpu"])
+            self.assertEqual(factory.call_args.kwargs["presets"], ["accuracy"])
+            self.assertIsNone(window.runtime)
+            window.choose_compared_threads(4)
+            self.assertEqual(window.cpu_threads.currentData(), 2)
+            comparison.events.put(
+                dict(
+                    kind="result",
+                    preset="accuracy",
+                    cpu_threads=4,
+                    compare_cpu=True,
+                    text="test",
+                    warm_seconds=1,
+                    first_seconds=2,
+                    load_seconds=3,
+                    cpu_percent=200,
+                    peak_mib=500,
+                    consistent=True,
+                    background_priority=False,
+                )
+            )
+            comparison.events.put(dict(kind="done", cancelled=False))
+            window.poll_comparison()
+            self.assertIsNone(window.comparison)
+            self.assertEqual(window.cpu_threads.currentData(), 2)
+            button = next(
+                b
+                for b in window.compare_panel.findChildren(QPushButton)
+                if b.text() == "Use 4 CPU threads"
+            )
+            button.click()
+            self.assertEqual(window.speech.cpu_threads, 4)
+            self.assertEqual(window.speech.model, "small")
+            self.assertEqual(window.speech.language, "no")
+
     def test_windows_finish_saves_starts_game_companion_and_minimizes(self):
         with self.setup_for("Windows") as window:
             window.pages.setCurrentIndex(4)
@@ -177,8 +243,12 @@ class SettingsParityTests(unittest.TestCase):
                 window.pages.setCurrentIndex(4)
                 window.show()
                 with (
-                    patch("thumbtalk_ui.model_downloaded", return_value=failure != "model"),
-                    patch("thumbtalk_ui.Runtime", side_effect=RuntimeError("Cannot start")),
+                    patch(
+                        "thumbtalk_ui.model_downloaded", return_value=failure != "model"
+                    ),
+                    patch(
+                        "thumbtalk_ui.Runtime", side_effect=RuntimeError("Cannot start")
+                    ),
                     patch.object(window, "ensure_hub"),
                     patch.object(window, "error") as error,
                 ):

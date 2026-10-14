@@ -27,6 +27,10 @@ models, channels and any saved whisper recipients. Settings live at
 Downloaded models are cached locally. Setup and companion logs may contain device
 names, game paths, diagnostic context and error details. Command-line transcription
 prints its result, and optional diagnostic tools produce local reports.
+Performance comparisons pass the same recording to local workers in memory;
+they do not write an audio file or send it over the network. Speech and delivery
+timing lines record durations, model preset, language and CPU thread count, not
+spoken words.
 
 No report is uploaded automatically. Check logs, screenshots and diagnostic
 archives before sharing; remove private chat, character names and account paths.

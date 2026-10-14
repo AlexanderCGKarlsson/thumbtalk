@@ -69,13 +69,16 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(resolve_settings(self.path).language, "no")
         self.assertIsNone(resolve_settings(self.path, language="auto").language)
 
-    def test_explicit_preset_resets_model_threads_but_keeps_language(self):
+    def test_explicit_preset_changes_model_but_keeps_language_and_cpu_budget(self):
         save_settings(
-            self.path, resolve_settings(self.path, language="no", preset="accuracy")
+            self.path,
+            resolve_settings(
+                self.path, language="no", preset="accuracy", cpu_threads=4
+            ),
         )
         result = resolve_settings(self.path, preset="economy")
         self.assertEqual(
-            (result.model, result.cpu_threads, result.language), ("tiny", 2, "no")
+            (result.model, result.cpu_threads, result.language), ("tiny", 4, "no")
         )
         result = resolve_settings(
             self.path, preset="economy", model="base", cpu_threads=3
@@ -250,6 +253,14 @@ class TranscriptionTests(unittest.TestCase):
         cache(SpeechSettings(model="base"), lambda _: None)
         cache(SpeechSettings(), lambda _: None)
         self.assertEqual(self.factory.call_count, 3)
+
+    def test_changed_cpu_budget_reloads_model_but_reuses_same_budget(self):
+        cache = ModelCache()
+        cache(SpeechSettings(cpu_threads=2), lambda _: None)
+        cache(SpeechSettings(cpu_threads=4), lambda _: None)
+        cache(SpeechSettings(cpu_threads=4, language="no"), lambda _: None)
+        self.assertEqual(self.factory.call_count, 2)
+        self.assertEqual(self.factory.call_args.kwargs["cpu_threads"], 4)
 
     def test_cached_model_still_validates_language(self):
         self.model.supported_languages = ["en"]

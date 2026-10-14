@@ -246,9 +246,29 @@ without reloading WoW. F11–F14 are reserved for the addon connection.
 ## Local speech, with room for your game
 
 **Whisper Small** is the default based on our Ally voice tests. It runs on the
-CPU with INT8 inference and two inference threads. Only one model stays loaded.
+CPU with INT8 inference and two inference threads by default. Only one model stays loaded.
 Your GPU remains available to the game; performance still depends on the device
 and workload.
+
+In the upcoming 0.8.3 build 4, **Voice → Advanced speech → Speech CPU usage**
+also offers four threads on Windows and Linux. This keeps the same model and
+language but gives recognition more CPU time; it may affect game performance.
+The choice is retained when switching models in setup or the in-game menu.
+
+To measure it on your device, record a short sentence in **Try it**, then open
+**Audio options → Compare CPU speeds**. This runs the same recording and model
+at two and four threads, reporting the first pass and the average of two warm
+passes separately from model loading. Compare the words as well as the timings.
+Keep power mode, plugged-in/battery state, and the WoW scene the same for both
+tests, and check for game stutter. Choose **Use 4 CPU threads** only if the result
+is better on your device. No speed-up is guaranteed; CPU comparisons do not
+automatically change your settings or download another model.
+
+For a long wait in game, **Open delivery log** now separates audio preparation,
+speech recognition, waiting for button release, and native chat input. These
+timing lines contain no recording or transcript. A delay before sending is not
+necessarily slow transcription. Windows handheld latency still needs testing
+under gameplay load; we have not established the cause of the reported five-second wait.
 
 | Model | Role | Language selection | When to choose it |
 | :--- | :--- | :--- | :--- |

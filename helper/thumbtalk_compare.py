@@ -12,10 +12,12 @@ import threading
 import time
 
 CANDIDATES = {
+    "economy": "Whisper Tiny",
     "balanced": "Whisper Base",
     "accuracy": "Whisper Small",
     "parakeet": "Parakeet V3",
 }
+DEFAULT_CANDIDATES = ("balanced", "accuracy", "parakeet")
 MAX_BYTES = 30 * 16000 * 4
 
 
@@ -32,7 +34,15 @@ def read_request(stream):
     payload = stream.read(size)
     if len(payload) != size:
         raise ValueError("The recording was incomplete.")
+    validate_threads(header.get("cpu_threads", 2))
+    if type(header.get("compare_cpu", False)) is not bool:
+        raise ValueError("Invalid comparison mode.")
     return header, payload
+
+
+def validate_threads(value):
+    if type(value) is not int or not 1 <= value <= 64:
+        raise ValueError("Choose between 1 and 64 CPU threads for comparison.")
 
 
 def peak_memory_mib():
@@ -92,14 +102,16 @@ def worker_main():
 
     try:
         header, payload = read_request(sys.stdin.buffer)
+        threads = header.get("cpu_threads", 2)
         for name in (
             "OMP_NUM_THREADS",
             "OPENBLAS_NUM_THREADS",
             "MKL_NUM_THREADS",
             "VECLIB_MAXIMUM_THREADS",
         ):
-            os.environ[name] = "2"
-        priority = lower_priority()
+            os.environ[name] = str(threads)
+        # Match live dictation's normal process priority for the CPU comparison.
+        priority = False if header.get("compare_cpu", False) else lower_priority()
         import numpy as np
         from thumbtalk_speech import PRESETS, SpeechSettings, create_transcriber
 
@@ -109,12 +121,15 @@ def worker_main():
         preset = header["preset"]
         settings = SpeechSettings(
             preset=preset,
-            **PRESETS[preset],
+            model=PRESETS[preset]["model"],
+            cpu_threads=threads,
             language=None if preset == "parakeet" else header.get("language"),
         )
         started = time.perf_counter()
         transcriber = create_transcriber(
-            settings, lambda message: emit("progress", message=message)
+            settings,
+            lambda message: emit("progress", message=message),
+            local_files_only=True,
         )
         load_seconds = time.perf_counter() - started
         times, cpu, texts = [], [], []
@@ -130,6 +145,8 @@ def worker_main():
         emit(
             "result",
             preset=preset,
+            cpu_threads=threads,
+            compare_cpu=header.get("compare_cpu", False),
             text=texts[-1],
             consistent=len(set(texts)) == 1,
             load_seconds=load_seconds,
@@ -148,7 +165,9 @@ def worker_main():
 class Comparison:
     """No recording files, input listeners, or game delivery in the workers."""
 
-    def __init__(self, audio, language, presets=None):
+    def __init__(
+        self, audio, language, presets=None, *, cpu_threads=2, compare_cpu=False
+    ):
         import numpy as np
 
         self.payload = np.asarray(audio, dtype="<f4").reshape(-1).tobytes()
@@ -156,10 +175,19 @@ class Comparison:
             raise ValueError("Record a sentence between 0.25 and 30 seconds first.")
         self.language = language
         self.presets = (
-            tuple(CANDIDATES) if presets is None else tuple(dict.fromkeys(presets))
+            DEFAULT_CANDIDATES if presets is None else tuple(dict.fromkeys(presets))
         )
         if not self.presets or any(p not in CANDIDATES for p in self.presets):
             raise ValueError("Choose downloaded models to compare.")
+        validate_threads(cpu_threads)
+        if compare_cpu and len(self.presets) != 1:
+            raise ValueError("Choose one model to compare CPU speeds.")
+        self.compare_cpu = compare_cpu
+        self.jobs = tuple(
+            (preset, threads)
+            for preset in self.presets
+            for threads in ((2, 4) if compare_cpu else (cpu_threads,))
+        )
         self.events = queue.Queue()
         self.cancelled = threading.Event()
         self.lock = threading.Lock()
@@ -177,8 +205,8 @@ class Comparison:
 
     def run(self):
         try:
-            for preset in self.presets:
-                label = CANDIDATES[preset]
+            for preset, threads in self.jobs:
+                label = f"{CANDIDATES[preset]} · {threads} threads"
                 with self.lock:
                     if self.cancelled.is_set():
                         break
@@ -193,9 +221,10 @@ class Comparison:
                     )
                     env = dict(
                         os.environ,
-                        OMP_NUM_THREADS="2",
-                        OPENBLAS_NUM_THREADS="2",
-                        MKL_NUM_THREADS="2",
+                        OMP_NUM_THREADS=str(threads),
+                        OPENBLAS_NUM_THREADS=str(threads),
+                        MKL_NUM_THREADS=str(threads),
+                        VECLIB_MAXIMUM_THREADS=str(threads),
                     )
                     self.process = subprocess.Popen(
                         command,
@@ -214,7 +243,11 @@ class Comparison:
                 reported = False
                 try:
                     request = dict(
-                        preset=preset, language=self.language, size=len(self.payload)
+                        preset=preset,
+                        language=self.language,
+                        size=len(self.payload),
+                        cpu_threads=threads,
+                        compare_cpu=self.compare_cpu,
                     )
                     process.stdin.write(
                         json.dumps(request).encode() + b"\n" + self.payload

@@ -188,6 +188,29 @@ class ChatTests(unittest.TestCase):
 
 
 class RuntimeTests(unittest.TestCase):
+    def test_timings_distinguish_recognition_and_delivery_without_transcript(self):
+        import numpy as np
+
+        runtime, _, _, recorder = self.make_runtime(auto_send=True)
+        runtime.log = Mock()
+        runtime.transcriber.transcribe = lambda audio: "private spoken words"
+        recorder.stop.return_value = np.zeros(16000, dtype="float32")
+        runtime.action("record", True)
+        runtime.action("record", False)
+        self.until(runtime, lambda: runtime.session.state == "idle")
+        lines = [call.args[0] for call in runtime.log.call_args_list]
+        self.assertTrue(
+            any(
+                "preparation=" in line
+                and "recognition=" in line
+                and "audio=1.00s" in line
+                for line in lines
+            )
+        )
+        self.assertTrue(any("input wait=" in line for line in lines))
+        self.assertTrue(any("native input=" in line for line in lines))
+        self.assertNotIn("private spoken words", "\n".join(lines))
+
     def make_runtime(self, mode="hold", transcriber=None, auto_send=False):
         hub = SimpleNamespace(
             error="", physical_modifiers=set(), poll=lambda: [], close=Mock()
@@ -226,7 +249,9 @@ class RuntimeTests(unittest.TestCase):
         runtime.poll()
         self.assertEqual(runtime.session.state, "idle")
         self.assertFalse(runtime.chat.auto_send)
-        self.assertIn("Review is temporarily unavailable", runtime.notify.call_args.args[0])
+        self.assertIn(
+            "Review is temporarily unavailable", runtime.notify.call_args.args[0]
+        )
         recorder.start.assert_not_called()
         delivery.prepare_chat.assert_not_called()
         delivery.draft.assert_not_called()
@@ -724,7 +749,9 @@ class RuntimeTests(unittest.TestCase):
             with self.subTest(auto_send=auto_send):
                 runtime, delivery, _, _ = self.make_runtime(auto_send=auto_send)
                 runtime.chat = replace(runtime.chat, classic_chat=True)
-                delivery.prepare_chat.side_effect = AssertionError("Unsafe style setup invoked")
+                delivery.prepare_chat.side_effect = AssertionError(
+                    "Unsafe style setup invoked"
+                )
                 runtime.action("record", True)
                 runtime.action("record", False)
                 if auto_send:
