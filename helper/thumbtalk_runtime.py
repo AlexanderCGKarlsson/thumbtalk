@@ -833,7 +833,7 @@ class Runtime:
                 self.destination = Destination(action[5:], self.chat.recipient)
             action = "record"
         if action == "confirm" and not down and self.session.state == "preview":
-            self.defer("send" if self.draft_ready else "draft")
+            self.defer("send" if self.chat.auto_send or self.draft_ready else "draft")
         elif action == "record":
             if not down and self.ignore_record_release:
                 self.ignore_record_release = False
@@ -841,7 +841,9 @@ class Runtime:
             if self.menu_open:
                 return
             if self.session.state == "preview" and not down:
-                self.defer("send" if self.draft_ready else "draft")
+                # Immediate sends also use preview while waiting for safe input
+                # or restored focus. A Talk release must not turn them into review.
+                self.defer("send" if self.chat.auto_send or self.draft_ready else "draft")
             elif self.session.state == "idle" and down:
                 if not self.chat.auto_send and self.local_review_paused():
                     self.notify(LOCAL_REVIEW_PAUSED)
