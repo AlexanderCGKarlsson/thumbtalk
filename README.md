@@ -32,7 +32,7 @@ No programming needed. You need a PC or handheld with **WoW installed**, a **mic
 
 ### Windows (64-bit)
 
-1. **Download.** Open the [release page](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.2), scroll to **Assets** at the bottom (click **Assets** if it is collapsed) and click **`thumbtalk-windows-setup.exe`**. Your browser may ask to "keep" the file because it is not commonly downloaded; choose **Keep**.
+1. **Download.** Open the [release page](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.3), scroll to **Assets** at the bottom (click **Assets** if it is collapsed) and click **`thumbtalk-windows-setup.exe`**. Your browser may ask to "keep" the file because it is not commonly downloaded; choose **Keep**.
    Do **not** click "Source code (zip)". That is for developers and will not install anything.
 2. **Run it.** Open your **Downloads** folder and double-click `thumbtalk-windows-setup.exe`. No administrator password is needed.
 3. **If Windows says "Windows protected your PC" (SmartScreen):** the installer is not code-signed yet, so this is expected. Click **More info**, then **Run anyway**. If your antivirus blocks or quarantines it, check that the file came from the release page above, then allow it for this file only. Do not turn off your antivirus or Windows security entirely.
@@ -41,17 +41,17 @@ No programming needed. You need a PC or handheld with **WoW installed**, a **mic
 6. **Test your microphone.** Start the voice test, click **Record**, say a sentence, click **Stop recording**, then **Listen to recording**. If you hear nothing, see [Troubleshooting](#troubleshooting).
 7. **Buttons step.** Next to **Talk** and **Menu**, click **Change**, then **Listen for a button…** and press the controller button (or key) you want. Pick buttons that WoW does not already use.
 8. **WoW step.** Select your WoW version (Retail, Classic, ...) and click **Install addon**. Repeat for each version you play.
-9. **Finish.** Click **Save & finish**. Close WoW if it was open, then **start WoW and restart it fully** so it loads the addon.
-10. **Use it.** Start **ThumbTalk** from the Start menu and keep it running while you play. In WoW: **hold Talk, speak, release**, read the line starting with `ThumbTalk:` in your chat window, then **tap Talk to send** or **tap Menu to cancel**.
+9. **Finish.** Click **Save & minimize**. This starts the companion and minimizes its window. Fully restart WoW if it was open when you installed the addon.
+10. **Use it.** Launch WoW normally and keep ThumbTalk running. In WoW: **hold Talk, speak, release**, read the line starting with `ThumbTalk:` in your chat window, then **tap Talk to send** or **tap Menu to cancel**.
 
 *Prefer a ZIP?* Download `thumbtalk-windows-x86_64.zip` from the same Assets list, right-click it, choose **Extract All...**, open the extracted `ThumbTalk` folder and run `thumbtalk.exe --setup` (for example from a shortcut or a Command Prompt opened in that folder). Do not run it from inside the ZIP preview. Alternatively download **`Install-ThumbTalk.cmd`** from the Assets list and double-click it: it downloads and installs the portable build for you (internet needed; SmartScreen may warn here too: **More info → Run anyway**).
 
 ### Linux / SteamOS
 
-1. Download **`ThumbTalk-0.8.2-build3-linux.zip`** from the **Assets** list on the [release page](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.2).
+1. Download **`ThumbTalk-0.8.3-build4-linux.zip`** from the **Assets** list on the [release page](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.3).
 2. **Extract the whole ZIP** (right-click → Extract). Do not run files from inside the ZIP.
 3. In the extracted folder, open **`Install-ThumbTalk.desktop`** (choose "Execute" or allow it to run if asked). If it opens as text instead, open a terminal in that folder and run `bash install-local.sh`.
-4. Follow steps 5 to 10 above. Linux needs X11 or XWayland, and SteamOS needs the extra Steam steps in [Set up your voice and buttons](#set-up-your-voice-and-buttons).
+4. Follow the voice, button and addon steps 5 to 8 above. Follow the Steam launch instructions in [Set up your voice and buttons](#set-up-your-voice-and-buttons), choose **Save & finish**, then launch the Steam entry you configured. Linux needs X11 or XWayland.
 
 ### Something went wrong?
 
@@ -96,10 +96,15 @@ A light stick movement selects a segment; return to center between menu levels.
 
 ## Get started
 
-**[Download ThumbTalk 0.8.2 · build 3](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.2)**
+**[Download ThumbTalk 0.8.3 · build 4](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.3)**
 
-**Windows 0.8.2 changes text delivery** to avoid Ctrl+V and simulated transcript
-letter keys triggering game bindings. Opening chat and submitting still use
+**New in 0.8.3:** download verified updates inside the app, finish Windows setup
+with **Save & minimize**, and compare two or four speech CPU threads on the same
+recording. Two threads remain the default; faster Windows transcription still
+needs measurement on your handheld.
+
+Windows retains the 0.8.2 text delivery path, which avoids Ctrl+V and simulated
+transcript letter keys triggering game bindings. Opening chat and submitting still use
 keyboard events. Native Windows input and installer checks passed, but live WoW
 acceptance and chat closing are still unverified. A successful Windows API call
 does not confirm delivery. There is no automatic clipboard or physical-letter
@@ -112,9 +117,9 @@ Speech models download separately during setup and run locally afterward.
 
 | Platform | Download | Installation |
 | :--- | :--- | :--- |
-| **Linux / SteamOS** | [Complete installer ZIP](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.2/ThumbTalk-0.8.2-build3-linux.zip) | Extract the entire ZIP and open its `Install-ThumbTalk.desktop` |
-| **Windows** | [Setup installer](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.2/thumbtalk-windows-setup.exe) | Run the installer and leave **Open ThumbTalk** selected |
-| **Windows portable** | [Portable ZIP](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.2/thumbtalk-windows-x86_64.zip) | Extract everything; run `ThumbTalk/thumbtalk.exe --setup` |
+| **Linux / SteamOS** | [Complete installer ZIP](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.3/ThumbTalk-0.8.3-build4-linux.zip) | Extract the entire ZIP and open its `Install-ThumbTalk.desktop` |
+| **Windows** | [Setup installer](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.3/thumbtalk-windows-setup.exe) | Run the installer and leave **Open ThumbTalk** selected |
+| **Windows portable** | [Portable ZIP](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.3/thumbtalk-windows-x86_64.zip) | Extract everything; run `ThumbTalk/thumbtalk.exe --setup` |
 
 Windows and Linux packages target Intel/AMD x64. Linux needs X11 or XWayland;
 native Wayland-only input is not supported. macOS currently runs from source.
@@ -132,7 +137,7 @@ Each package has a matching `.sha256` file on the release page. Download both.
 On Linux, run this in the download folder:
 
 ```sh
-sha256sum -c ThumbTalk-0.8.2-build3-linux.zip.sha256
+sha256sum -c ThumbTalk-0.8.3-build4-linux.zip.sha256
 ```
 
 On Windows PowerShell, compare these values, ignoring letter case:
@@ -159,7 +164,10 @@ it is not a signing certificate. Do not disable Windows security globally.
 5. **WoW:** select your game client and **Install addon**. Repeat for every Retail,
    Classic or beta client you play, then follow the connection instructions below.
 
-**Next** saves each step. Choose **Save & finish** when done. After updating,
+**Next** saves each step. On Windows, the final button is **Save & minimize**: it saves your settings and starts the companion,
+ready for WoW. On 0.8.2 and earlier, choose **Start ThumbTalk for WoW** to keep it
+running; **Save & finish** exits the app. On Linux, **Save & finish** closes setup;
+the Steam launch option starts the companion with your game. After updating,
 install the matching addon again and fully restart WoW.
 
 <details>
@@ -191,6 +199,10 @@ profile used in setup and the profile used in WoW.
 Use **Gamepad / Spillkontroller** mode while playing. Return to ThumbTalk's
 **Buttons → Change → Listen for a button…**, press each button and save.
 Start **ThumbTalk for WoW**, keep it running, and launch WoW through Battle.net.
+With **Save & minimize**, finishing setup also starts the
+companion. Restore its window from the taskbar to change settings; closing the
+window with **X** quits ThumbTalk. Launching WoW by itself does not start a closed
+Windows companion.
 
 Enable **Start with Windows** in the WoW setup step to launch the companion
 minimized at sign-in. It is optional and off by default. Download your model and
@@ -238,9 +250,29 @@ without reloading WoW. F11–F14 are reserved for the addon connection.
 ## Local speech, with room for your game
 
 **Whisper Small** is the default based on our Ally voice tests. It runs on the
-CPU with INT8 inference and two inference threads. Only one model stays loaded.
+CPU with INT8 inference and two inference threads by default. Only one model stays loaded.
 Your GPU remains available to the game; performance still depends on the device
 and workload.
+
+**Voice → Advanced speech → Speech CPU usage**
+also offers four threads on Windows and Linux. This keeps the same model and
+language but gives recognition more CPU time; it may affect game performance.
+The choice is retained when switching models in setup or the in-game menu.
+
+To measure it on your device, record a short sentence in **Try it**, then open
+**Audio options → Compare CPU speeds**. This runs the same recording and model
+at two and four threads, reporting the first pass and the average of two warm
+passes separately from model loading. Compare the words as well as the timings.
+Keep power mode, plugged-in/battery state, and the WoW scene the same for both
+tests, and check for game stutter. Choose **Use 4 CPU threads** only if the result
+is better on your device. No speed-up is guaranteed; CPU comparisons do not
+automatically change your settings or download another model.
+
+For a long wait in game, **Open delivery log** now separates audio preparation,
+speech recognition, waiting for button release, and native chat input. These
+timing lines contain no recording or transcript. A delay before sending is not
+necessarily slow transcription. Windows handheld latency still needs testing
+under gameplay load; we have not established the cause of the reported five-second wait.
 
 | Model | Role | Language selection | When to choose it |
 | :--- | :--- | :--- | :--- |
@@ -269,13 +301,14 @@ is not supported by this Parakeet model; choose Whisper for Norwegian. See
 
 ## Linux and Windows settings
 
-The 0.8.2 build 3 Windows and Linux packages use the same Setup screens and saved
+The 0.8.3 build 4 Windows and Linux packages use the same Setup screens and saved
 preferences on both platforms:
 
 | Configuration | Linux / SteamOS | Windows |
 | :--- | :--- | :--- |
 | Whisper Small, Base, Tiny; Parakeet V3; model downloads | Yes | Yes |
 | Spoken language and favorite languages | Yes | Yes |
+| Speech CPU usage and comparison on the same recording | Yes | Yes |
 | Microphone selection, level check, tap-to-record voice test | Yes | Yes |
 | Keyboard, Mouse 4/5, gamepad bindings; hold or toggle recording | Yes | Yes |
 | Channels, whisper favorites, review or immediate sending | Yes | Yes |
@@ -293,11 +326,26 @@ delivery differs by platform.
 
 Choose **Check for updates** at the top of Setup. Preview versions (0.x) include
 published betas and stable releases; versions 1.0 and later check stable releases
-only. Drafts are excluded. Checks are manual, include no audio or settings, and
-open GitHub for you to download an update; nothing is installed automatically.
+only. Drafts are excluded. Checks happen only when requested and include no audio
+or settings.
 
-Close WoW and ThumbTalk before updating. Install the companion and matching
-addon together, then restart WoW. Preferences stay outside the app folder.
+**In-app updates are available from 0.8.3 build 4.** Installed Windows
+and Linux/SteamOS apps can choose **Download update** in this dialog. It downloads
+the package for your platform directly from the selected GitHub release, shows
+progress, and verifies its SHA-256 checksum. You can cancel the download without
+changing the installed app.
+
+Once the download is verified, close WoW and choose **Install update**. Windows
+opens its Setup installer and closes ThumbTalk; leave **Open ThumbTalk** selected
+at the end. Linux installs into the existing folder and restarts Setup. Saved
+settings are kept, and the installers refresh existing ThumbTalk addons. Restart
+WoW afterward. A download or installer error stays visible; the GitHub release
+link remains available as a fallback.
+
+Versions 0.8.1 and 0.8.2 only open the release page. Install a version with the new
+updater once manually to use in-app downloads for later releases. Source,
+portable-folder and unsupported-platform builds continue to use the release page.
+Preferences stay outside the app folder.
 [All releases and release notes →](https://github.com/AlexanderCGKarlsson/thumbtalk/releases)
 
 ## Troubleshooting
@@ -317,7 +365,7 @@ More detail is in the table below.
 | **Ready, but neither Talk nor Menu reacts on SteamOS** | Check ThumbTalk's saved keys against the **running game's** Steam layout. Restart WoW and the companion; if needed, reboot the handheld. A reboot restored this on our SteamOS Ally; the cause is unconfirmed. |
 | **Mouse 4 is learned as Mouse 5** | This has been reported on a SteamOS Ally. Test the physical buttons with temporary letter bindings in a text editor to separate left/right mapping from mouse numbering. Match the actual signal in both Steam layouts, or use spare keyboard keys. Do not assume L5/R5 must be swapped. |
 | **Windows rear buttons are not detected** | Assign primary keyboard actions in Armoury Crate or the device's controller app, then learn those keys in ThumbTalk. Steam is optional. |
-| **Windows briefly shows `/s`, toggles nameplates, or sends nothing** | A nameplate toggle suggests input reached a gameplay binding; it does not establish why chat failed to open. Version 0.8.1 used Ctrl+V, which can conflict with a game binding outside chat. Version 0.8.2 avoids this shortcut but still needs live WoW verification. Open **Setup → Open delivery log** for the saved stages and errors. Do not assume “Send requested” means WoW accepted it. |
+| **Windows briefly shows `/s`, toggles nameplates, or sends nothing** | A nameplate toggle suggests input reached a gameplay binding; it does not establish why chat failed to open. Version 0.8.1 used Ctrl+V, which can conflict with a game binding outside chat. Versions 0.8.2 and later avoid this shortcut but still need live WoW verification. Open **Setup → Open delivery log** for the saved stages and errors. Do not assume “Send requested” means WoW accepted it. |
 | **A circular alphabet keyboard appears when chat opens** | This is ConsolePort's keyboard module. Temporarily disabling only **Console Port Keyboard** and reloading the UI can help isolate it. On our Windows Retail test, disabling it removed the keyboard but did not fix missing text or nameplate toggles. |
 | **WoW works directly, but ThumbTalk is missing through Battle.net** | Put the launch option on the **Battle.net Steam shortcut** too, and check its active controller layout. The addon being enabled does not mean the companion is running. |
 | **The radial is missing** | Start the companion, confirm the Menu binding, and check for reset keybindings. Hidden status does not hide the radial. |
@@ -338,7 +386,7 @@ The Linux companion log is `${XDG_STATE_HOME:-~/.local/state}/thumbtalk/companio
 
 Open a [new bug report](https://github.com/AlexanderCGKarlsson/thumbtalk/issues/new/choose) (a free GitHub account is needed), or send the details to the person who gave you ThumbTalk. Please include:
 
-- **Version:** shown in Setup (for example 0.8.2 build 3).
+- **Version:** shown in Setup (for example 0.8.3 build 4).
 - **Operating system and device:** for example Windows 11 on a gaming laptop, or ROG Ally on Windows.
 - **WoW version:** Retail, Classic or other.
 - **What you did, what you expected, what happened.** A phone photo or screenshot is fine.

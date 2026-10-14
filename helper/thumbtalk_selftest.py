@@ -257,8 +257,62 @@ def run():
         assert not updates.checking and updates.release_button.isEnabled()
         assert updates.release_button.text() == "View update on GitHub"
         updates.close()
+        # Exercise bundled downloader and its dialog without network or execution.
+        import hashlib
+        from thumbtalk_updates import UpdatePackage, UpdateResult
+        from thumbtalk_update_install import download_update
+
+        payload = b"ThumbTalk update download fixture"
+        digest = hashlib.sha256(payload).hexdigest()
+        package_url = "https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v9.0.0/thumbtalk-windows-setup.exe"
+        package = UpdatePackage(
+            "thumbtalk-windows-setup.exe",
+            package_url,
+            package_url + ".sha256",
+            len(payload),
+            digest,
+        )
+        available = UpdateResult(
+            "available", "Fixture update available", package=package
+        )
+
+        def fixture_download(item, cancel, progress):
+            def open_fixture(url):
+                content = (
+                    (digest + "  " + item.name + "\r\n").encode()
+                    if url.endswith(".sha256")
+                    else payload
+                )
+                return io.BytesIO(content)
+
+            return download_update(
+                item, cancel, progress, opener=open_fixture, temp_parent=directory
+            )
+
+        updates = UpdateDialog(
+            window,
+            checker=lambda: available,
+            downloader=fixture_download,
+            prefix=Path(directory),
+        )
+        updates.start_check()
+        limit = time.monotonic() + 5
+        while updates.checking and time.monotonic() < limit:
+            _app.processEvents()
+            updates.poll()
+            time.sleep(0.01)
+        assert not updates.action_button.isHidden()
+        updates.action_button.click()
+        while updates.downloading and time.monotonic() < limit:
+            _app.processEvents()
+            updates.poll()
+            time.sleep(0.01)
+        assert updates.downloaded, updates.status.text()
+        assert updates.downloaded.path.read_bytes() == payload
+        assert updates.action_button.text() == "Install update"
+        updates.close()
         print(
-            "Bundled release checker, CA certificates and update dialog passed.",
+            "Bundled release checker, verified download and install-ready dialog passed.",
             flush=True,
         )
         assert not window.review_b_cancel.isChecked()

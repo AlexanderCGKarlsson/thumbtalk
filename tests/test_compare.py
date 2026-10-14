@@ -9,11 +9,98 @@ from unittest.mock import Mock, patch
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "helper"))
-from thumbtalk_compare import Comparison, MAX_BYTES, read_request
+from thumbtalk_compare import Comparison, MAX_BYTES, read_request, worker_main
 from thumbtalk_speech import ParakeetTranscriber, SpeechSettings, PRESETS
 
 
 class ComparisonTests(unittest.TestCase):
+    def test_invalid_cpu_comparisons_rejected_before_launch(self):
+        for threads in (0, True, "4", -1, 65):
+            with self.subTest(threads=threads), self.assertRaises(ValueError):
+                Comparison(np.zeros(16000), "en", cpu_threads=threads)
+        with self.assertRaises(ValueError):
+            Comparison(np.zeros(16000), "en", compare_cpu=True)
+
+    def test_cpu_worker_uses_selected_threads_without_download_or_lower_priority(self):
+        payload = np.zeros(16000, dtype="<f4").tobytes()
+        header = dict(
+            preset="accuracy",
+            language="no",
+            size=len(payload),
+            cpu_threads=4,
+            compare_cpu=True,
+        )
+        request = io.BytesIO(json.dumps(header).encode() + b"\n" + payload)
+        output = io.StringIO()
+        engine = Mock()
+        engine.transcribe.return_value = "Blåbær og smør."
+        with (
+            patch("sys.stdin", SimpleNamespace(buffer=request)),
+            patch("sys.stdout", output),
+            patch.dict("os.environ", {}),
+            patch("thumbtalk_compare.lower_priority") as priority,
+            patch("thumbtalk_compare.peak_memory_mib", return_value=500),
+            patch(
+                "thumbtalk_compare.time.perf_counter",
+                side_effect=[10, 12, 20, 24, 30, 33, 40, 43],
+            ),
+            patch(
+                "thumbtalk_speech.create_transcriber", return_value=engine
+            ) as factory,
+        ):
+            worker_main()
+        priority.assert_not_called()
+        settings = factory.call_args.args[0]
+        self.assertEqual(
+            (settings.model, settings.cpu_threads, settings.language),
+            ("small", 4, "no"),
+        )
+        self.assertTrue(factory.call_args.kwargs["local_files_only"])
+        self.assertEqual(engine.transcribe.call_count, 3)
+        result = json.loads(output.getvalue().splitlines()[-1])
+        self.assertEqual(result["first_seconds"], 4)
+        self.assertEqual(result["warm_seconds"], 3)
+        self.assertEqual(result["load_seconds"], 2)
+        self.assertEqual(result["cpu_threads"], 4)
+        self.assertTrue(result["consistent"])
+
+    def test_cpu_comparison_keeps_audio_model_and_language_identical(self):
+        payloads, environments, processes = [], [], []
+
+        class Input(io.BytesIO):
+            def close(self):
+                if not self.closed:
+                    payloads.append(self.getvalue())
+                super().close()
+
+        def launch(*args, **kwargs):
+            if processes:
+                processes[-1].wait.assert_called_once()
+            environments.append(kwargs["env"])
+            process = Mock(stdin=Input(), stdout=io.BytesIO(b'{"kind":"result"}\n'))
+            process.poll.return_value = 0
+            processes.append(process)
+            return process
+
+        comparison = Comparison(
+            np.linspace(-1, 1, 8000), "no", presets=["accuracy"], compare_cpu=True
+        )
+        original = comparison.payload
+        with patch("thumbtalk_compare.subprocess.Popen", side_effect=launch):
+            comparison.run()
+        self.assertEqual(len(processes), 2)
+        for threads, payload, env in zip((2, 4), payloads, environments):
+            header, audio = payload.split(b"\n", 1)
+            header = json.loads(header)
+            self.assertEqual(audio, original)
+            self.assertEqual(
+                (header["preset"], header["language"], header["cpu_threads"]),
+                ("accuracy", "no", threads),
+            )
+            self.assertEqual(env["OMP_NUM_THREADS"], str(threads))
+            self.assertEqual(env["MKL_NUM_THREADS"], str(threads))
+        self.assertEqual(comparison.payload, b"")
+
     def test_protocol_rejects_oversized_short_and_truncated_audio(self):
         for size in (False, -1, 0, 4, MAX_BYTES + 4, 16001, 16000):
             with self.subTest(size=size), self.assertRaises(ValueError):

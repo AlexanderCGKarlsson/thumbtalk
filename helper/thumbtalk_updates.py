@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import platform
 import re
 import ssl
 from urllib.error import HTTPError, URLError
@@ -24,11 +25,65 @@ MAX_RESPONSE_BYTES = 1024 * 1024
 
 
 @dataclass(frozen=True)
+class UpdatePackage:
+    name: str
+    url: str
+    checksum_url: str
+    size: int
+    digest: str | None = None
+
+
+def release_package(payload, *, system=None, machine=None):
+    """Select only our known package names and construct URLs in this repository."""
+    system = system or platform.system()
+    machine = machine or platform.machine()
+    if machine.lower() not in ("amd64", "x86_64"):
+        return None
+    tag = payload["tag_name"]
+    assets = payload.get("assets", [])
+    if not isinstance(assets, list):
+        return None
+    names = [a.get("name") for a in assets if isinstance(a, dict)]
+    if system == "Windows":
+        name = "thumbtalk-windows-setup.exe"
+    elif system == "Linux":
+        pattern = (
+            r"ThumbTalk-" + re.escape(str(Version(tag))) + r"-build([0-9]+)-linux\.zip"
+        )
+        matches = [
+            (int(m[1]), n)
+            for n in names
+            if isinstance(n, str) and (m := re.fullmatch(pattern, n))
+        ]
+        if not matches:
+            return None
+        name = max(matches)[1]
+    else:
+        return None
+    if names.count(name) != 1 or names.count(name + ".sha256") != 1:
+        return None
+    item = next(a for a in assets if isinstance(a, dict) and a.get("name") == name)
+    size = item.get("size")
+    if type(size) is not int or not 0 < size <= 1024 * 1024 * 1024:
+        return None
+    digest = item.get("digest")
+    if digest is not None:
+        if not isinstance(digest, str) or not re.fullmatch(
+            r"sha256:[0-9a-fA-F]{64}", digest
+        ):
+            return None
+        digest = digest.split(":")[1].lower()
+    base = f"https://github.com/{REPOSITORY}/releases/download/{quote(tag, safe='')}/"
+    return UpdatePackage(name, base + name, base + name + ".sha256", size, digest)
+
+
+@dataclass(frozen=True)
 class UpdateResult:
     state: str
     message: str
     release_url: str = RELEASES_URL
     latest_version: str | None = None
+    package: UpdatePackage | None = None
 
 
 def compare_release(payload, current_version, *, allow_preview=False):
@@ -62,9 +117,10 @@ def compare_release(payload, current_version, *, allow_preview=False):
     if latest > current:
         return UpdateResult(
             "available",
-            f"ThumbTalk {latest} is available. Open the release page to download the update.",
+            f"ThumbTalk {latest} is available.",
             url,
             str(latest),
+            release_package(payload),
         )
     if latest == current:
         return UpdateResult(

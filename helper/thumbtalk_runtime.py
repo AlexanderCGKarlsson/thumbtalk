@@ -257,6 +257,7 @@ class Runtime:
             False,
         )
         self.deferred = None
+        self.delivery_requested_at = None
         self.input_wait_notified = False
         self.transcriber = None
         self.last_audio = None
@@ -435,7 +436,7 @@ class Runtime:
         if not self.model_available(preset):
             raise ValueError("Download this model in Setup → Voice before switching.")
         previous = replace(self.speech, language=self.language)
-        candidate = replace(previous, preset=preset, **PRESETS[preset])
+        candidate = replace(previous, preset=preset, model=PRESETS[preset]["model"])
         if preset == "parakeet":
             candidate = replace(
                 candidate, language=None, device="cpu", compute_type="int8"
@@ -724,6 +725,10 @@ class Runtime:
             elif self.matcher.modifiers_clear() and not self.hub.physical_modifiers:
                 self.deferred = None
                 try:
+                    if not self.practice and self.delivery_requested_at is not None:
+                        self.log(
+                            f"Delivery timing: {action}; input wait={time.monotonic() - self.delivery_requested_at:.3f}s"
+                        )
                     self._deliver(action)
                 except Exception as error:
                     if action == "clear":
@@ -732,7 +737,8 @@ class Runtime:
 
     def defer(self, action):
         self.input_wait_notified = False
-        self.deferred = (action, time.monotonic())
+        self.delivery_requested_at = time.monotonic()
+        self.deferred = (action, self.delivery_requested_at)
 
     def action(self, action, down):
         if action == "cancel" and down:
@@ -869,11 +875,13 @@ class Runtime:
         token = self.session.stop()
         if token is None:
             return
+        stopped_at = time.monotonic()
         try:
             audio = self.recorder.stop()
         except Exception:
             self.session.cancel()
             raise
+        preparation_seconds = time.monotonic() - stopped_at
         if self.practice:
             self.last_audio = audio
         self.notify("Transcribing · " + self.session.destination.label)
@@ -887,6 +895,11 @@ class Runtime:
                 return self.transcriber.transcribe(audio)
             finally:
                 self.transcription_seconds = time.monotonic() - started
+                self.log(
+                    f"Speech timing: {self.speech.preset}; {self.speech.cpu_threads} threads; "
+                    f"language={self.record_language or 'auto'}; audio={len(audio) / 16000:.2f}s; "
+                    f"preparation={preparation_seconds:.3f}s; recognition={self.transcription_seconds:.3f}s"
+                )
 
         self._start_worker("transcribed", token, transcribe)
 
@@ -926,7 +939,13 @@ class Runtime:
             if self.practice:
                 return
             # Do not submit preparatory commands or change the game's settings.
-            getattr(self.delivery, operation)(*args)
+            started = time.monotonic()
+            try:
+                getattr(self.delivery, operation)(*args)
+            finally:
+                self.log(
+                    f"Delivery timing: {operation}; native input={time.monotonic() - started:.3f}s; delivery unconfirmed"
+                )
 
         if action == "draft":
             if self.session.state != "preview":
