@@ -293,11 +293,26 @@ delivery differs by platform.
 
 Choose **Check for updates** at the top of Setup. Preview versions (0.x) include
 published betas and stable releases; versions 1.0 and later check stable releases
-only. Drafts are excluded. Checks are manual, include no audio or settings, and
-open GitHub for you to download an update; nothing is installed automatically.
+only. Drafts are excluded. Checks happen only when requested and include no audio
+or settings.
 
-Close WoW and ThumbTalk before updating. Install the companion and matching
-addon together, then restart WoW. Preferences stay outside the app folder.
+**In-app updates are included in the upcoming 0.8.3 build 4.** Installed Windows
+and Linux/SteamOS apps can choose **Download update** in this dialog. It downloads
+the package for your platform directly from the selected GitHub release, shows
+progress, and verifies its SHA-256 checksum. You can cancel the download without
+changing the installed app.
+
+Once the download is verified, close WoW and choose **Install update**. Windows
+opens its Setup installer and closes ThumbTalk; leave **Open ThumbTalk** selected
+at the end. Linux installs into the existing folder and restarts Setup. Saved
+settings are kept, and the installers refresh existing ThumbTalk addons. Restart
+WoW afterward. A download or installer error stays visible; the GitHub release
+link remains available as a fallback.
+
+Versions 0.8.1 and 0.8.2 only open the release page. Install a version with the new
+updater once manually to use in-app downloads for later releases. Source,
+portable-folder and unsupported-platform builds continue to use the release page.
+Preferences stay outside the app folder.
 [All releases and release notes →](https://github.com/AlexanderCGKarlsson/thumbtalk/releases)
 
 ## Troubleshooting

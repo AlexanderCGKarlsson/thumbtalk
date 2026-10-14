@@ -73,6 +73,13 @@ jobs:
           if ($process.ExitCode -ne 0) { throw "Windows setup failed" }
           & "$target/app/thumbtalk.exe" --self-test
           if ($LASTEXITCODE -ne 0) { throw "Setup app smoke check failed" }
+      - name: Check in-app update on existing Linux installation
+        if: runner.os == 'Linux'
+        run: uv run --project helper python packaging/check-update-install.py --prefix "$RUNNER_TEMP/thumbtalk"
+      - name: Check in-app update on existing Windows installation
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: uv run --project helper python packaging/check-update-install.py --prefix "$env:RUNNER_TEMP/ThumbTalkSetup"
       - uses: actions/upload-artifact@v4
         with:
           name: thumbtalk-${{ runner.os }}

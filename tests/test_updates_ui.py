@@ -93,3 +93,141 @@ class UpdateDialogTests(unittest.TestCase):
             self.assertIn(RELEASES_URL, dialog.status.text())
         finally:
             dialog.close()
+
+
+class UpdateDownloadDialogTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
+
+    def settle(self, dialog):
+        deadline = time.monotonic() + 3
+        while (
+            dialog.checking or dialog.downloading or dialog.installing
+        ) and time.monotonic() < deadline:
+            self.app.processEvents()
+            dialog.poll()
+            time.sleep(0.005)
+        self.assertFalse(dialog.checking or dialog.downloading or dialog.installing)
+
+    def make_dialog(self, directory, **kwargs):
+        from thumbtalk_updates import UpdatePackage
+
+        p = UpdatePackage(
+            "thumbtalk-windows-setup.exe",
+            "https://github.com/test",
+            "https://github.com/test.sha256",
+            100,
+        )
+        result = UpdateResult(
+            "available", "Update available", RELEASES_URL + "/tag/v0.8.3", "0.8.3", p
+        )
+        return UpdateDialog(checker=lambda: result, prefix=Path(directory), **kwargs)
+
+    def test_download_verified_then_explicit_install_and_handoff(self):
+        import tempfile
+        from thumbtalk_update_install import DownloadedUpdate
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+
+            def download(p, cancel, progress):
+                progress(100, 100)
+                path = root / "download" / p.name
+                path.parent.mkdir()
+                path.write_bytes(b"data")
+                return DownloadedUpdate(p, path, "fixture")
+
+            installer, finish, prepare = (
+                Mock(return_value="handoff"),
+                Mock(),
+                Mock(return_value=True),
+            )
+            dialog = self.make_dialog(
+                root,
+                downloader=download,
+                installer=installer,
+                finish_install=finish,
+                prepare_install=prepare,
+            )
+            try:
+                dialog.start_check()
+                self.settle(dialog)
+                self.assertFalse(dialog.action_button.isHidden())
+                dialog.action_button.click()
+                self.settle(dialog)
+                self.assertEqual(dialog.action_button.text(), "Install update")
+                self.assertIn("verified", dialog.status.text())
+                installer.assert_not_called()
+                dialog.action_button.click()
+                self.settle(dialog)
+                prepare.assert_called_once()
+                installer.assert_called_once()
+                finish.assert_called_once_with("handoff")
+                self.assertIsNone(dialog.downloaded)
+                self.assertTrue((root / "download" / dialog.package.name).exists())
+            finally:
+                dialog.close()
+
+    def test_download_cancel_and_failure_never_enable_installation(self):
+        import tempfile
+        from thumbtalk_update_install import UpdateCancelled
+
+        with tempfile.TemporaryDirectory() as root:
+            entered = threading.Event()
+
+            def download(p, cancel, progress):
+                entered.set()
+                cancel.wait(2)
+                raise UpdateCancelled()
+
+            installer = Mock()
+            dialog = self.make_dialog(root, downloader=download, installer=installer)
+            try:
+                dialog.start_check()
+                self.settle(dialog)
+                dialog.take_action()
+                self.assertTrue(entered.wait(0.5))
+                self.assertFalse(dialog.check_button.isEnabled())
+                dialog.take_action()
+                self.settle(dialog)
+                self.assertIn("cancelled", dialog.status.text())
+                self.assertEqual(dialog.action_button.text(), "Download update")
+                self.assertIsNone(dialog.downloaded)
+                installer.assert_not_called()
+            finally:
+                dialog.close()
+
+    def test_install_failure_stays_visible_and_close_is_blocked_only_during_install(
+        self,
+    ):
+        import tempfile
+        from thumbtalk_update_install import DownloadedUpdate
+
+        with tempfile.TemporaryDirectory() as root:
+            started, finish = threading.Event(), threading.Event()
+
+            def install(*args):
+                started.set()
+                finish.wait(2)
+                raise OSError("fixture install failure")
+
+            complete = Mock()
+            dialog = self.make_dialog(root, installer=install, finish_install=complete)
+            try:
+                dialog.show()
+                dialog.downloaded = DownloadedUpdate(
+                    None, Path(root) / "stage" / "fixture", "fixture"
+                )
+                dialog.start_install()
+                self.assertTrue(started.wait(0.5))
+                dialog.close()
+                self.assertTrue(dialog.isVisible())
+                finish.set()
+                self.settle(dialog)
+                self.assertIn("could not finish", dialog.status.text())
+                self.assertTrue(dialog.close_button.isEnabled())
+                complete.assert_not_called()
+            finally:
+                finish.set()
+                dialog.close()

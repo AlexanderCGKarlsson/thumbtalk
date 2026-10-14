@@ -1,6 +1,6 @@
 ; Current-user installer: no administrator prompt, with Start menu and uninstall entries.
 #ifndef AppVersion
-  #define AppVersion "0.8.2"
+  #define AppVersion "0.8.3"
 #endif
 [Setup]
 AppId={{8BB075E7-971E-4381-988B-F9866FB7D520}

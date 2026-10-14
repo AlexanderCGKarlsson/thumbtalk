@@ -981,11 +981,24 @@ class Setup(QMainWindow):
         from thumbtalk_updates_ui import UpdateDialog
 
         if not getattr(self, "updates_dialog", None):
-            self.updates_dialog = UpdateDialog(self)
+            self.updates_dialog = UpdateDialog(self, prepare_install=self.prepare_update_install)
         self.updates_dialog.show()
         self.updates_dialog.raise_()
         self.updates_dialog.activateWindow()
         self.updates_dialog.start_check()
+
+    def prepare_update_install(self):
+        if not self.save():
+            return False
+        self.stop_mic_check()
+        self.stop_runtime()
+        try:
+            lock = acquire_lock(self.path)
+            lock.unlock()
+        except RuntimeError:
+            self.error("Close WoW and the other ThumbTalk companion before installing an update.")
+            return False
+        return True
 
     def open_delivery_log(self):
         from PySide6.QtCore import QUrl
@@ -2664,6 +2677,12 @@ class Setup(QMainWindow):
             self.status.setText(str(error))
 
     def closeEvent(self, event):
+        updates = getattr(self, "updates_dialog", None)
+        if updates and updates.installing:
+            event.ignore()
+            return
+        if updates:
+            updates.close()
         if self.downloads:
             self.downloads.cancelled.set()
         if self.comparison:

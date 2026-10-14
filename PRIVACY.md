@@ -38,7 +38,10 @@ Do not submit a full settings JSON unless you have reviewed its contents.
   ordinary connection information to that service, such as your IP address and
   download client details. Speech processing stays local afterward.
 - **Check for updates** requests public release metadata from GitHub only when
-  selected. No audio, transcripts or saved preferences are included.
+  selected. **Download update** then downloads the matching package and checksum
+  from GitHub into a temporary local folder. GitHub receives ordinary connection
+  information, such as your IP address. No audio, transcripts or saved preferences
+  are included. Installation starts only after you choose **Install update**.
 - Installers fetch app packages from GitHub unless a complete offline package is
   supplied. Opening documentation or support links uses your browser normally.
 
