@@ -32,7 +32,7 @@ No programming needed. You need a PC or handheld with **WoW installed**, a **mic
 
 ### Windows (64-bit)
 
-1. **Download.** Open the [release page](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.3), scroll to **Assets** at the bottom (click **Assets** if it is collapsed) and click **`thumbtalk-windows-setup.exe`**. Your browser may ask to "keep" the file because it is not commonly downloaded; choose **Keep**.
+1. **Download.** Open the [release page](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.4), scroll to **Assets** at the bottom (click **Assets** if it is collapsed) and click **`thumbtalk-windows-setup.exe`**. Your browser may ask to "keep" the file because it is not commonly downloaded; choose **Keep**.
    Do **not** click "Source code (zip)". That is for developers and will not install anything.
 2. **Run it.** Open your **Downloads** folder and double-click `thumbtalk-windows-setup.exe`. No administrator password is needed.
 3. **If Windows says "Windows protected your PC" (SmartScreen):** the installer is not code-signed yet, so this is expected. Click **More info**, then **Run anyway**. If your antivirus blocks or quarantines it, check that the file came from the release page above, then allow it for this file only. Do not turn off your antivirus or Windows security entirely.
@@ -48,7 +48,7 @@ No programming needed. You need a PC or handheld with **WoW installed**, a **mic
 
 ### Linux / SteamOS
 
-1. Download **`ThumbTalk-0.8.3-build4-linux.zip`** from the **Assets** list on the [release page](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.3).
+1. Download **`ThumbTalk-0.8.4-build5-linux.zip`** from the **Assets** list on the [release page](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.4).
 2. **Extract the whole ZIP** (right-click → Extract). Do not run files from inside the ZIP.
 3. In the extracted folder, open **`Install-ThumbTalk.desktop`** (choose "Execute" or allow it to run if asked). If it opens as text instead, open a terminal in that folder and run `bash install-local.sh`.
 4. Follow the voice, button and addon steps 5 to 8 above. Follow the Steam launch instructions in [Set up your voice and buttons](#set-up-your-voice-and-buttons), choose **Save & finish**, then launch the Steam entry you configured. Linux needs X11 or XWayland.
@@ -96,9 +96,14 @@ A light stick movement selects a segment; return to center between menu levels.
 
 ## Get started
 
-**[Download ThumbTalk 0.8.3 · build 4](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.3)**
+**[Download ThumbTalk 0.8.4 · build 5](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.4)**
 
-**New in 0.8.3:** download verified updates inside the app, finish Windows setup
+**Fixed in 0.8.4:** an extra Talk or confirm tap while a message waits for button
+release or restored WoW focus no longer changes **Send immediately** into a
+review request. The fix applies to Windows and Linux; review mode still waits
+for acceptance.
+
+**Also included:** download verified updates inside the app, finish Windows setup
 with **Save & minimize**, and compare two or four speech CPU threads on the same
 recording. A Windows handheld tester reported faster transcription with four
 threads; compare performance on your device using the steps below.
@@ -117,9 +122,9 @@ Speech models download separately during setup and run locally afterward.
 
 | Platform | Download | Installation |
 | :--- | :--- | :--- |
-| **Linux / SteamOS** | [Complete installer ZIP](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.3/ThumbTalk-0.8.3-build4-linux.zip) | Extract the entire ZIP and open its `Install-ThumbTalk.desktop` |
-| **Windows** | [Setup installer](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.3/thumbtalk-windows-setup.exe) | Run the installer and leave **Open ThumbTalk** selected |
-| **Windows portable** | [Portable ZIP](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.3/thumbtalk-windows-x86_64.zip) | Extract everything; run `ThumbTalk/thumbtalk.exe --setup` |
+| **Linux / SteamOS** | [Complete installer ZIP](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.4/ThumbTalk-0.8.4-build5-linux.zip) | Extract the entire ZIP and open its `Install-ThumbTalk.desktop` |
+| **Windows** | [Setup installer](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.4/thumbtalk-windows-setup.exe) | Run the installer and leave **Open ThumbTalk** selected |
+| **Windows portable** | [Portable ZIP](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.4/thumbtalk-windows-x86_64.zip) | Extract everything; run `ThumbTalk/thumbtalk.exe --setup` |
 
 Windows and Linux packages target Intel/AMD x64. Linux needs X11 or XWayland;
 native Wayland-only input is not supported. macOS currently runs from source.
@@ -137,7 +142,7 @@ Each package has a matching `.sha256` file on the release page. Download both.
 On Linux, run this in the download folder:
 
 ```sh
-sha256sum -c ThumbTalk-0.8.3-build4-linux.zip.sha256
+sha256sum -c ThumbTalk-0.8.4-build5-linux.zip.sha256
 ```
 
 On Windows PowerShell, compare these values, ignoring letter case:
@@ -311,7 +316,7 @@ is not supported by this Parakeet model; choose Whisper for Norwegian. See
 
 ## Linux and Windows settings
 
-The 0.8.3 build 4 Windows and Linux packages use the same Setup screens and saved
+The 0.8.4 build 5 Windows and Linux packages use the same Setup screens and saved
 preferences on both platforms:
 
 | Configuration | Linux / SteamOS | Windows |
@@ -396,7 +401,7 @@ The Linux companion log is `${XDG_STATE_HOME:-~/.local/state}/thumbtalk/companio
 
 Open a [new bug report](https://github.com/AlexanderCGKarlsson/thumbtalk/issues/new/choose) (a free GitHub account is needed), or send the details to the person who gave you ThumbTalk. Please include:
 
-- **Version:** shown in Setup (for example 0.8.3 build 4).
+- **Version:** shown in Setup (for example 0.8.4 build 5).
 - **Operating system and device:** for example Windows 11 on a gaming laptop, or ROG Ally on Windows.
 - **WoW version:** Retail, Classic or other.
 - **What you did, what you expected, what happened.** A phone photo or screenshot is fine.
