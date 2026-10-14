@@ -340,6 +340,88 @@ class RuntimeTests(unittest.TestCase):
         delivery.draft.assert_not_called()
         self.assertEqual(delivery.send.call_args.args[1], "/s hello")
 
+    def test_immediate_send_stays_immediate_after_taps_while_waiting_for_input(self):
+        from thumbtalk_activity import InputActivity
+
+        for mode in ("hold", "toggle"):
+            for action, key in (("record", "f8"), ("confirm", "f9")):
+                with self.subTest(mode=mode, action=action):
+                    runtime, delivery, _, recorder = self.make_runtime(
+                        mode=mode, auto_send=True
+                    )
+                    notices = []
+                    runtime.notify = notices.append
+                    now = [1.0]
+                    runtime.hub.activity = activity = InputActivity(lambda: now[0])
+                    activity.button("pad", 1, "PAD1", True)
+                    runtime.action("record", True)
+                    runtime.action("record", False)
+                    if mode == "toggle":
+                        runtime.action("record", True)
+                        runtime.action("record", False)
+                    self.until(runtime, lambda: runtime.session.state == "preview")
+                    self.assertEqual(runtime.deferred[0], "send")
+                    # Transcription has finished, but gameplay input still holds
+                    # the send. Repeated Talk/confirm taps must not stage review.
+                    for _ in range(3):
+                        for down in (True, False):
+                            activity.button("key", 0, key, down)
+                            runtime.hub.poll = lambda down=down: [("key", 0, key, down)]
+                            runtime.poll()
+                        runtime.hub.poll = lambda: []
+                    activity.button("pad", 1, "PAD1", False)
+                    now[0] += 0.21
+                    self.until(runtime, lambda: runtime.session.state == "idle")
+                    delivery.draft.assert_not_called()
+                    delivery.send.assert_called_once()
+                    self.assertEqual(delivery.send.call_args.args[1], "/s hello")
+                    recorder.start.assert_called_once()
+                    self.assertFalse(any("Review requested" in n for n in notices))
+                    self.assertTrue(runtime.chat.auto_send)
+
+    def test_immediate_retry_after_focus_returns_never_requests_review(self):
+        for action in ("record", "confirm"):
+            with self.subTest(action=action):
+                runtime, delivery, foreground, _ = self.make_runtime(auto_send=True)
+                target = foreground.current.return_value
+                runtime.action("record", True)
+                runtime.action("record", False)
+                foreground.current.return_value = None
+                self.until(runtime, lambda: runtime.session.state == "preview")
+                self.assertIsNone(runtime.deferred)
+                delivery.send.assert_not_called()
+                foreground.current.return_value = target
+                runtime.action(action, True)
+                runtime.action(action, False)
+                self.until(runtime, lambda: runtime.session.state == "idle")
+                delivery.draft.assert_not_called()
+                delivery.send.assert_called_once()
+                self.assertEqual(delivery.send.call_args.args[1], "/s hello")
+
+    def test_review_taps_before_staging_still_require_acceptance_after_review(self):
+        from thumbtalk_activity import InputActivity
+
+        runtime, delivery, _, _ = self.make_runtime(auto_send=False)
+        now = [1.0]
+        runtime.hub.activity = activity = InputActivity(lambda: now[0])
+        activity.button("pad", 1, "PAD1", True)
+        runtime.action("record", True)
+        runtime.action("record", False)
+        self.until(runtime, lambda: runtime.session.state == "preview")
+        for action in ("record", "confirm"):
+            runtime.action(action, True)
+            runtime.action(action, False)
+            runtime.poll()
+        activity.button("pad", 1, "PAD1", False)
+        now[0] += 0.21
+        self.until(runtime, lambda: runtime.draft_ready)
+        delivery.draft.assert_called_once()
+        delivery.send.assert_not_called()
+        runtime.action("record", True)
+        runtime.action("record", False)
+        self.until(runtime, lambda: runtime.session.state == "idle")
+        delivery.send.assert_called_once()
+
     def test_quick_menu_switches_language_only_on_release_for_next_recording(self):
         transcriber = SimpleNamespace(
             settings=SpeechSettings(),
