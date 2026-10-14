@@ -100,8 +100,8 @@ A light stick movement selects a segment; return to center between menu levels.
 
 **New in 0.8.3:** download verified updates inside the app, finish Windows setup
 with **Save & minimize**, and compare two or four speech CPU threads on the same
-recording. Two threads remain the default; faster Windows transcription still
-needs measurement on your handheld.
+recording. A Windows handheld tester reported faster transcription with four
+threads; compare performance on your device using the steps below.
 
 Windows retains the 0.8.2 text delivery path, which avoids Ctrl+V and simulated
 transcript letter keys triggering game bindings. Opening chat and submitting still use
@@ -254,10 +254,19 @@ CPU with INT8 inference and two inference threads by default. Only one model sta
 Your GPU remains available to the game; performance still depends on the device
 and workload.
 
-**Voice → Advanced speech → Speech CPU usage**
-also offers four threads on Windows and Linux. This keeps the same model and
-language but gives recognition more CPU time; it may affect game performance.
-The choice is retained when switching models in setup or the in-game menu.
+**Try four CPU threads if transcription feels slow.** A Windows handheld tester
+reported faster transcription after switching from two to four threads with the
+same model. This is an observed improvement, not a measured speed guarantee.
+
+In Setup, open **Voice → Advanced speech → Speech CPU usage** and choose four
+threads. This option is available on **Windows and Linux/SteamOS**. Save your
+settings and restart the companion if it is already running. The choice is
+retained when switching models in setup or the in-game menu.
+
+| Speech CPU threads | What to expect |
+| :--- | :--- |
+| **2 · default** | Lower speech CPU usage, leaving more room for the game |
+| **4 · optional** | May finish recognition sooner with the same model, but uses more CPU; check gameplay smoothness too |
 
 To measure it on your device, record a short sentence in **Try it**, then open
 **Audio options → Compare CPU speeds**. This runs the same recording and model
@@ -271,8 +280,9 @@ automatically change your settings or download another model.
 For a long wait in game, **Open delivery log** now separates audio preparation,
 speech recognition, waiting for button release, and native chat input. These
 timing lines contain no recording or transcript. A delay before sending is not
-necessarily slow transcription. Windows handheld latency still needs testing
-under gameplay load; we have not established the cause of the reported five-second wait.
+necessarily slow transcription. Four threads improved the reported Windows
+experience, but the exact gain and performance under different gameplay loads
+still need measurement. This setting does not change review or immediate-send mode.
 
 | Model | Role | Language selection | When to choose it |
 | :--- | :--- | :--- | :--- |
