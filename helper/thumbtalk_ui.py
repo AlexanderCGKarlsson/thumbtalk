@@ -1802,7 +1802,7 @@ class Setup(QMainWindow):
         layout = self.page("Choose your two buttons")
         layout.addWidget(
             paragraph(
-                "Choose a keyboard key, mouse click or gamepad button with Change. If a rear button is not detected, use the setup below."
+                "Use Change to choose a key, mouse click or gamepad button. For Ctrl + Space or similar shortcuts, open Combination and choose each key. If a rear button is not detected, use the setup below."
             )
         )
         guide = card(layout)
@@ -2297,7 +2297,7 @@ class Setup(QMainWindow):
             self.button_labels[action].style().unpolish(self.button_labels[action])
             self.button_labels[action].style().polish(self.button_labels[action])
             self.status.setText(
-                "Listening: hold your button(s) together, then release. For rear buttons, apply the mapping above first."
+                "Listening: hold your keys or buttons together (for example Ctrl + Space), then release. For rear buttons, apply the mapping above first."
             )
             self.stop_learning.show()
             self.input_status.show()
@@ -2305,7 +2305,7 @@ class Setup(QMainWindow):
             if not self.hub.devices:
                 self.button_labels[action].setText("Press a key or mouse button")
                 self.status.setText(
-                    "No controller detected. Open Controller connection for help, or press a keyboard key or mouse button."
+                    "No controller detected. Hold a key combination such as Ctrl + Space, then release, or press a mouse button. Open Controller connection for help."
                 )
         except Exception as error:
             self.error(error)

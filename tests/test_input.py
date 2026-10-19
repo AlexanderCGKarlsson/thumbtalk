@@ -102,6 +102,93 @@ class ListenerTests(unittest.TestCase):
             self.assertEqual(hub.events.get_nowait(), ("key", 0, name, True))
             self.assertEqual(hub.events.get_nowait(), ("key", 0, name, False))
 
+    def test_ctrl_space_remap_learns_and_matches_on_windows_and_linux(self):
+        from thumbtalk_chat import BindingMatcher, DEFAULT_BINDINGS
+
+        for system in ("win32", "linux"):
+            for control in ("ctrl_l", "ctrl_r"):
+                for literal_space in (False, True):
+                    for modifier_first in (False, True):
+                        with (
+                            self.subTest(
+                                system=system,
+                                control=control,
+                                literal_space=literal_space,
+                                modifier_first=modifier_first,
+                            ),
+                            patch("thumbtalk_input.sys.platform", system),
+                        ):
+                            listener = SimpleNamespace(
+                                start=Mock(),
+                                stop=Mock(),
+                                join=Mock(),
+                                canonical=lambda key: key,
+                            )
+                            hub = self.make_hub(listener)
+                            ctrl = SimpleNamespace(name=control)
+                            space = (
+                                SimpleNamespace(char=" ")
+                                if literal_space
+                                else SimpleNamespace(name="space")
+                            )
+                            keys = (ctrl, space) if modifier_first else (space, ctrl)
+                            learner = Learner()
+                            matcher = BindingMatcher(
+                                dict(DEFAULT_BINDINGS, record="key:ctrl+space")
+                            )
+                            changes, learned = [], None
+                            for key, down in (
+                                (keys[0], True),
+                                (keys[1], True),
+                                (keys[1], True),  # Holding a remapped key may repeat.
+                                (keys[0], False),
+                                (keys[1], False),
+                            ):
+                                hub._key(key, down, injected=True)  # Steam remap.
+                                event = hub.events.get_nowait()
+                                if learned is None:
+                                    learned = learner.feed(*event)
+                                changes.extend(matcher.feed(*event))
+                            self.assertEqual(learned, "key:ctrl+space")
+                            self.assertEqual(
+                                changes, [("record", True), ("record", False)]
+                            )
+                            self.assertTrue(matcher.modifiers_clear())
+                            self.assertFalse(hub.physical_modifiers)
+                            self.assertFalse(hub.activity.held)
+
+    def test_canonical_space_character_keeps_symbolic_binding_name(self):
+        listener = SimpleNamespace(
+            start=Mock(),
+            stop=Mock(),
+            join=Mock(),
+            canonical=lambda key: SimpleNamespace(char=" "),
+        )
+        hub = self.make_hub(listener)
+        hub._key(SimpleNamespace(name="space"), True)
+        hub._key(SimpleNamespace(name="space"), False)
+        self.assertEqual(hub.events.get_nowait(), ("key", 0, "space", True))
+        self.assertEqual(hub.events.get_nowait(), ("key", 0, "space", False))
+
+    def test_announced_space_echo_does_not_trigger_shortcuts(self):
+        listener = SimpleNamespace(
+            start=Mock(),
+            stop=Mock(),
+            join=Mock(),
+            canonical=lambda key: key,
+        )
+        hub = self.make_hub(listener)
+        for system in ("win32", "linux"):
+            with (
+                self.subTest(system=system),
+                patch("thumbtalk_input.sys.platform", system),
+            ):
+                hub.expect_injected(SimpleNamespace(char=" "))
+                for key in (SimpleNamespace(char=" "), SimpleNamespace(name="space")):
+                    hub._key(key, True, injected=True)
+                    hub._key(key, False, injected=True)
+                self.assertTrue(hub.events.empty())
+
     def test_physical_key_matching_recent_text_still_interrupts_delivery(self):
         listener = SimpleNamespace(
             start=Mock(), stop=Mock(), join=Mock(), canonical=lambda key: key

@@ -32,7 +32,7 @@ No programming needed. You need a PC or handheld with **WoW installed**, a **mic
 
 ### Windows (64-bit)
 
-1. **Download.** Open the [release page](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.4), scroll to **Assets** at the bottom (click **Assets** if it is collapsed) and click **`thumbtalk-windows-setup.exe`**. Your browser may ask to "keep" the file because it is not commonly downloaded; choose **Keep**.
+1. **Download.** Open the [release page](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.5), scroll to **Assets** at the bottom (click **Assets** if it is collapsed) and click **`thumbtalk-windows-setup.exe`**. Your browser may ask to "keep" the file because it is not commonly downloaded; choose **Keep**.
    Do **not** click "Source code (zip)". That is for developers and will not install anything.
 2. **Run it.** Open your **Downloads** folder and double-click `thumbtalk-windows-setup.exe`. No administrator password is needed.
 3. **If Windows says "Windows protected your PC" (SmartScreen):** the installer is not code-signed yet, so this is expected. Click **More info**, then **Run anyway**. If your antivirus blocks or quarantines it, check that the file came from the release page above, then allow it for this file only. Do not turn off your antivirus or Windows security entirely.
@@ -48,7 +48,7 @@ No programming needed. You need a PC or handheld with **WoW installed**, a **mic
 
 ### Linux / SteamOS
 
-1. Download **`ThumbTalk-0.8.4-build5-linux.zip`** from the **Assets** list on the [release page](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.4).
+1. Download **`ThumbTalk-0.8.5-build6-linux.zip`** from the **Assets** list on the [release page](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.5).
 2. **Extract the whole ZIP** (right-click → Extract). Do not run files from inside the ZIP.
 3. In the extracted folder, open **`Install-ThumbTalk.desktop`** (choose "Execute" or allow it to run if asked). If it opens as text instead, open a terminal in that folder and run `bash install-local.sh`.
 4. Follow the voice, button and addon steps 5 to 8 above. Follow the Steam launch instructions in [Set up your voice and buttons](#set-up-your-voice-and-buttons), choose **Save & finish**, then launch the Steam entry you configured. Linux needs X11 or XWayland.
@@ -96,12 +96,16 @@ A light stick movement selects a segment; return to center between menu levels.
 
 ## Get started
 
-**[Download ThumbTalk 0.8.4 · build 5](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.4)**
+**[Download ThumbTalk 0.8.5 · build 6](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/tag/v0.8.5)**
 
-**Fixed in 0.8.4:** an extra Talk or confirm tap while a message waits for button
-release or restored WoW focus no longer changes **Send immediately** into a
-review request. The fix applies to Windows and Linux; review mode still waits
-for acceptance.
+**New in 0.8.5:** choose keyboard shortcuts entirely by touch. Open
+**Setup → Buttons → Change → Combination**, choose **First key** and **Second key**
+(for example **Ctrl** and **Space**), then tap **Use this shortcut**. Add more keys
+if needed. The same controls are available on Windows and Linux.
+
+**Retained from 0.8.4:** extra Talk or confirm taps while waiting for button
+release or restored WoW focus keep **Send immediately** in immediate mode.
+Review mode still waits for acceptance.
 
 **Also included:** download verified updates inside the app, finish Windows setup
 with **Save & minimize**, and compare two or four speech CPU threads on the same
@@ -122,9 +126,9 @@ Speech models download separately during setup and run locally afterward.
 
 | Platform | Download | Installation |
 | :--- | :--- | :--- |
-| **Linux / SteamOS** | [Complete installer ZIP](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.4/ThumbTalk-0.8.4-build5-linux.zip) | Extract the entire ZIP and open its `Install-ThumbTalk.desktop` |
-| **Windows** | [Setup installer](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.4/thumbtalk-windows-setup.exe) | Run the installer and leave **Open ThumbTalk** selected |
-| **Windows portable** | [Portable ZIP](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.4/thumbtalk-windows-x86_64.zip) | Extract everything; run `ThumbTalk/thumbtalk.exe --setup` |
+| **Linux / SteamOS** | [Complete installer ZIP](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.5/ThumbTalk-0.8.5-build6-linux.zip) | Extract the entire ZIP and open its `Install-ThumbTalk.desktop` |
+| **Windows** | [Setup installer](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.5/thumbtalk-windows-setup.exe) | Run the installer and leave **Open ThumbTalk** selected |
+| **Windows portable** | [Portable ZIP](https://github.com/AlexanderCGKarlsson/thumbtalk/releases/download/v0.8.5/thumbtalk-windows-x86_64.zip) | Extract everything; run `ThumbTalk/thumbtalk.exe --setup` |
 
 Windows and Linux packages target Intel/AMD x64. Linux needs X11 or XWayland;
 native Wayland-only input is not supported. macOS currently runs from source.
@@ -142,7 +146,7 @@ Each package has a matching `.sha256` file on the release page. Download both.
 On Linux, run this in the download folder:
 
 ```sh
-sha256sum -c ThumbTalk-0.8.4-build5-linux.zip.sha256
+sha256sum -c ThumbTalk-0.8.5-build6-linux.zip.sha256
 ```
 
 On Windows PowerShell, compare these values, ignoring letter case:
@@ -226,6 +230,19 @@ The review is visible only to you. Accepted messages go to the selected channel.
 Choose **Sending → Send immediately** to skip review. Setup also offers toggle
 recording and separate Confirm/Cancel buttons. B/Circle discard is optional and
 **off by default**, because that button may already have a gameplay action.
+
+**Keyboard combinations:** open **Setup → Buttons → Talk → Change → Combination**.
+Choose **Ctrl** in **First key** and **Space** in **Second key**, then press
+**Use this shortcut**. You can do this entirely by touch; no physical keyboard
+is needed. Choose other keys or use **Add another key** for a longer combination.
+You can also use **Listen for a button…**, hold the keys together, and release.
+Continue through setup to save. The same choices are available for Menu and
+extra shortcuts on Windows and Linux.
+A controller button can send Ctrl and Space together through Steam Input or
+your handheld's mapping app; hold both keys for the button's duration rather
+than sending a timed sequence. Keep that assignment in the profiles used for
+setup and WoW. ThumbTalk listens without suppressing gameplay input, so choose
+a combination that does not conflict with your game or system shortcuts.
 
 Hold **Menu** when no draft is pending to choose **Language**, **Channels**,
 **Speech model**, or **Sending**. Point the right stick at a category, return to
@@ -316,7 +333,7 @@ is not supported by this Parakeet model; choose Whisper for Norwegian. See
 
 ## Linux and Windows settings
 
-The 0.8.4 build 5 Windows and Linux packages use the same Setup screens and saved
+The 0.8.5 build 6 Windows and Linux packages use the same Setup screens and saved
 preferences on both platforms:
 
 | Configuration | Linux / SteamOS | Windows |
@@ -325,7 +342,7 @@ preferences on both platforms:
 | Spoken language and favorite languages | Yes | Yes |
 | Speech CPU usage and comparison on the same recording | Yes | Yes |
 | Microphone selection, level check, tap-to-record voice test | Yes | Yes |
-| Keyboard, Mouse 4/5, gamepad bindings; hold or toggle recording | Yes | Yes |
+| Keyboard combinations (e.g. Ctrl + Space), Mouse 4/5, gamepad bindings; hold or toggle recording | Yes | Yes |
 | Channels, whisper favorites, review or immediate sending | Yes | Yes |
 | Radial choices, optional B/Circle discard, overlay visibility/position | Yes | Yes |
 | Addon installation for each WoW client; update checks | Yes | Yes |
@@ -401,7 +418,7 @@ The Linux companion log is `${XDG_STATE_HOME:-~/.local/state}/thumbtalk/companio
 
 Open a [new bug report](https://github.com/AlexanderCGKarlsson/thumbtalk/issues/new/choose) (a free GitHub account is needed), or send the details to the person who gave you ThumbTalk. Please include:
 
-- **Version:** shown in Setup (for example 0.8.4 build 5).
+- **Version:** shown in Setup (for example 0.8.5 build 6).
 - **Operating system and device:** for example Windows 11 on a gaming laptop, or ROG Ally on Windows.
 - **WoW version:** Retail, Classic or other.
 - **What you did, what you expected, what happened.** A phone photo or screenshot is fine.

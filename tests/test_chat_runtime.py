@@ -802,6 +802,52 @@ class RuntimeTests(unittest.TestCase):
         delivery.draft.assert_called_once()
         delivery.send.assert_not_called()
 
+    def test_ctrl_space_waits_for_modifier_release_then_sends_or_reviews(self):
+        for auto_send in (False, True):
+            with self.subTest(auto_send=auto_send):
+                runtime, delivery, _, recorder = self.make_runtime(auto_send=auto_send)
+                runtime.matcher = BindingMatcher(
+                    dict(runtime.chat.bindings, record="key:ctrl+space")
+                )
+                events = []
+                runtime.hub.poll = lambda: [events.pop(0)] if events else []
+
+                def key(name, down):
+                    if name == "ctrl":
+                        if down:
+                            runtime.hub.physical_modifiers.add(name)
+                        else:
+                            runtime.hub.physical_modifiers.discard(name)
+                    events.append(("key", 0, name, down))
+                    runtime.poll()
+
+                key("space", True)
+                recorder.start.assert_not_called()
+                key("ctrl", True)
+                recorder.start.assert_called_once()
+                key("space", True)  # Auto-repeat must not restart recording.
+                recorder.start.assert_called_once()
+                key("space", False)
+                self.until(runtime, lambda: runtime.session.state == "preview")
+                delivery.send.assert_not_called()
+                delivery.draft.assert_not_called()
+                key("ctrl", False)
+                if auto_send:
+                    self.until(runtime, lambda: runtime.session.state == "idle")
+                    delivery.draft.assert_not_called()
+                else:
+                    self.until(runtime, lambda: runtime.draft_ready)
+                    delivery.draft.assert_called_once()
+                    delivery.send.assert_not_called()
+                    key("ctrl", True)
+                    key("space", True)
+                    key("space", False)
+                    delivery.send.assert_not_called()
+                    key("ctrl", False)
+                    self.until(runtime, lambda: runtime.session.state == "idle")
+                delivery.send.assert_called_once()
+                self.assertEqual(delivery.send.call_args.args[1], "/s hello")
+
     def test_no_style_preparation_for_review_or_discard_with_old_preference(self):
         runtime, delivery, _, _ = self.make_runtime()
         self.draft(runtime)

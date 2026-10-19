@@ -1,5 +1,5 @@
 -- ThumbTalk: public-channel routing and a temporary native gamepad camera lock.
-local ADDON_BUILD = "5"
+local ADDON_BUILD = "6"
 local diagnosticPhase = "idle"
 local lastBlockedAction
 local cameraStatus = "No radial signal received yet."

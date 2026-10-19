@@ -79,6 +79,94 @@ class SettingsParityTests(unittest.TestCase):
     def options(combo):
         return [combo.itemData(i) for i in range(combo.count())]
 
+    def test_ctrl_space_picker_replaces_old_shortcut_and_saves_on_both_platforms(self):
+        from thumbtalk_chat import load_chat
+        from thumbtalk_picker import BindingPicker
+
+        def choose(dialog):
+            self.assertEqual(dialog.value, "key:f8")
+            dialog.tabs.setCurrentWidget(dialog.combination_page)
+            self.assertFalse(dialog.use.isEnabled())
+            for combo, key in zip(dialog.combination_keys, ("ctrl", "space")):
+                combo.setCurrentIndex(combo.findData(key))
+            self.assertEqual(dialog.value, "key:ctrl+space")
+            self.assertEqual(dialog.summary.text(), "Keyboard Ctrl + Space")
+            self.assertFalse(dialog.buttons["key", "f8"].isChecked())
+            self.assertTrue(dialog.use.isEnabled())
+            dialog.use.click()
+            return dialog.result()
+
+        for system in ("Linux", "Windows"):
+            with self.subTest(system=system), self.setup_for(system) as window:
+                window.assign_binding("record", "key:f8")
+                with patch.object(BindingPicker, "exec", choose):
+                    window.choose_binding("record")
+                self.assertEqual(window.bindings["record"], "key:ctrl+space")
+                self.assertTrue(window.save())
+                self.assertEqual(
+                    load_chat(window.path).bindings["record"], "key:ctrl+space"
+                )
+                matcher = window.button_monitor
+                self.assertEqual(matcher.feed("key", 0, "ctrl", True), [])
+                self.assertEqual(
+                    matcher.feed("key", 0, "space", True), [("record", True)]
+                )
+                self.assertEqual(
+                    matcher.feed("key", 0, "ctrl", False), [("record", False)]
+                )
+                self.assertEqual(matcher.feed("key", 0, "space", False), [])
+
+    def test_picker_clear_custom_combination_conflict_and_cancel(self):
+        from thumbtalk_chat import DEFAULT_BINDINGS
+        from thumbtalk_picker import BindingPicker
+
+        bindings = dict(DEFAULT_BINDINGS)
+        dialog = BindingPicker("record", bindings)
+        try:
+            dialog.tabs.setCurrentWidget(dialog.combination_page)
+            dialog.clear_selection.click()
+            self.assertIsNone(dialog.value)
+            self.assertFalse(dialog.use.isEnabled())
+            first, second = dialog.combination_keys
+            first.setCurrentIndex(first.findData("ctrl"))
+            self.assertFalse(
+                dialog.use.isEnabled()
+            )  # A modifier alone is not a shortcut.
+            second.setCurrentIndex(second.findData("ctrl"))
+            self.assertFalse(
+                dialog.use.isEnabled()
+            )  # Repeated keys do not form a chord.
+            second.setCurrentIndex(second.findData("space"))
+            self.assertEqual(dialog.value, "key:ctrl+space")
+            dialog.add_combination.click()
+            self.assertFalse(dialog.use.isEnabled())
+            third = dialog.combination_keys[2]
+            third.setCurrentIndex(third.findData("shift"))
+            self.assertEqual(dialog.value, "key:ctrl+shift+space")
+            self.assertTrue(dialog.use.isEnabled())
+            # Switching views and reopening preserves an existing long shortcut.
+            dialog.tabs.setCurrentIndex(0)
+            self.assertEqual(dialog.value, "key:ctrl+shift+space")
+            dialog.select_binding(dialog.value)
+            self.assertIs(dialog.tabs.currentWidget(), dialog.combination_page)
+            self.assertEqual(
+                [c.currentData() for c in dialog.combination_keys],
+                ["ctrl", "shift", "space"],
+            )
+            dialog.reject()
+            self.assertEqual(bindings, DEFAULT_BINDINGS)
+        finally:
+            dialog.close()
+        dialog = BindingPicker("record", dict(bindings, confirm="key:ctrl+space"))
+        try:
+            dialog.tabs.setCurrentWidget(dialog.combination_page)
+            for combo, key in zip(dialog.combination_keys, ("ctrl", "space")):
+                combo.setCurrentIndex(combo.findData(key))
+            self.assertFalse(dialog.use.isEnabled())
+            self.assertIn("overlap", dialog.summary.text())
+        finally:
+            dialog.close()
+
     def test_shared_controls_save_and_reload_all_chat_preferences(self):
         saved = []
         for system in ("Linux", "Windows"):
