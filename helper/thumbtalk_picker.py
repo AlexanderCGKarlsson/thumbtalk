@@ -8,6 +8,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QGridLayout,
+    QFormLayout,
+    QComboBox,
     QLabel,
     QPushButton,
     QWidget,
@@ -151,7 +153,8 @@ class BindingPicker(QDialog):
         title.setObjectName("cardTitle")
         layout.addWidget(title)
         instruction = QLabel(
-            "Pick the same command you assigned in Steam. Select several buttons for a combination."
+            "Choose a key or button, or open Combination to select its keys one by one. "
+            "For controller remaps, match the signals assigned in Steam or your controller app."
         )
         instruction.setWordWrap(True)
         layout.addWidget(instruction)
@@ -183,10 +186,39 @@ class BindingPicker(QDialog):
             [keys[i : i + 4] for i in range(0, len(keys), 4)],
             PAD_LABELS,
         )
+        self.combination_page = QWidget()
+        combination_layout = QVBoxLayout(self.combination_page)
+        combination_layout.setContentsMargins(0, 0, 0, 0)
+        combination_help = QLabel(
+            "Choose the keys to hold together. No keyboard is needed to set this up."
+        )
+        combination_help.setWordWrap(True)
+        combination_layout.addWidget(combination_help)
+        self.combination_form = QFormLayout()
+        self.combination_form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        combination_layout.addLayout(self.combination_form)
+        self.combination_keys = []
+        self.combination_choices = list(
+            dict.fromkeys(
+                ["ctrl", "shift", "alt", "cmd", "space"]
+                + [key for row in keyboard_rows + navigation_rows for key in row]
+            )
+        )
+        self.add_combination = QPushButton("Add another key")
+        self.add_combination.clicked.connect(self.extend_combination)
+        combination_layout.addWidget(self.add_combination)
+        combination_layout.addStretch()
+        self.tabs.addTab(self.combination_page, "Combination")
         self.summary = QLabel("Choose a button above.")
         self.summary.setWordWrap(True)
         self.summary.setMinimumHeight(44)
         layout.addWidget(self.summary)
+        shortcuts = QHBoxLayout()
+        self.clear_selection = QPushButton("Clear selection")
+        self.clear_selection.clicked.connect(lambda: self.select_binding(""))
+        shortcuts.addWidget(self.clear_selection)
+        shortcuts.addStretch()
+        layout.addLayout(shortcuts)
         footer = QHBoxLayout()
         listen = QPushButton("Listen for a button…")
         listen.setObjectName("listenBinding")
@@ -196,21 +228,75 @@ class BindingPicker(QDialog):
         cancel = QPushButton("Cancel")
         cancel.clicked.connect(self.reject)
         footer.addWidget(cancel)
-        self.use = QPushButton("Use this button")
+        self.use = QPushButton("Use this shortcut")
         self.use.setObjectName("primary")
         self.use.setEnabled(False)
         self.use.clicked.connect(self.accept)
         footer.addWidget(self.use)
         layout.addLayout(footer)
+        self.tabs.currentChanged.connect(self.page_changed)
         # Show the current binding, and keep all edits local until confirmed.
         first = bindings.get(action, "").split("|")[0]
-        if ":" in first:
-            kind, body = first.split(":", 1)
-            for part in body.split("+"):
-                button = self.buttons.get((kind, part))
-                if button is not None:
-                    button.setChecked(True)
-                    self.tabs.setCurrentIndex(button.property("page"))
+        self.select_binding(first)
+
+    def select_binding(self, value):
+        selected = set()
+        parts = []
+        if value:
+            kind, body = canonical_binding(value).split(":", 1)
+            selected = {(kind, part) for part in body.split("+")}
+            if kind == "key":
+                parts = body.split("+")
+        self.tabs.blockSignals(True)
+        for signal, button in self.buttons.items():
+            button.setChecked(signal in selected)
+            if signal in selected:
+                self.tabs.setCurrentIndex(button.property("page"))
+        self.set_combination_parts(parts)
+        if len(parts) > 1:
+            self.tabs.setCurrentWidget(self.combination_page)
+        self.tabs.blockSignals(False)
+        self.changed()
+
+    def set_combination_parts(self, parts):
+        while self.combination_form.rowCount():
+            self.combination_form.removeRow(0)
+        self.combination_keys = []
+        for part in parts + [None] * max(0, 2 - len(parts)):
+            self.add_combination_key(part)
+
+    def add_combination_key(self, part=None):
+        combo = QComboBox()
+        combo.addItem("Choose a key…", None)
+        for key in self.combination_choices:
+            combo.addItem(KEY_LABELS.get(key, key.upper()), key)
+        combo.setCurrentIndex(max(0, combo.findData(part)))
+        index = len(self.combination_keys)
+        label = ("First key", "Second key")[index] if index < 2 else f"Key {index + 1}"
+        combo.setAccessibleName(label)
+        self.combination_form.addRow(label, combo)
+        self.combination_keys.append(combo)
+        combo.currentIndexChanged.connect(self.combination_changed)
+
+    def extend_combination(self):
+        self.add_combination_key()
+        self.combination_changed()
+
+    def combination_changed(self):
+        selected = {combo.currentData() for combo in self.combination_keys}
+        for (kind, part), button in self.buttons.items():
+            button.setChecked(kind == "key" and part in selected)
+        self.changed()
+
+    def page_changed(self):
+        if self.tabs.currentWidget() is self.combination_page:
+            self.set_combination_parts(
+                [
+                    part
+                    for (kind, part), button in self.buttons.items()
+                    if kind == "key" and button.isChecked()
+                ]
+            )
         self.changed()
 
     def add_page(self, title, kind, rows, labels):
@@ -272,6 +358,14 @@ class BindingPicker(QDialog):
                     button.setChecked(False)
         selected = [(k, part) for (k, part), b in self.buttons.items() if b.isChecked()]
         self.value = None
+        if self.tabs.currentWidget() is self.combination_page:
+            selected = [("key", combo.currentData()) for combo in self.combination_keys]
+            if any(part is None for _, part in selected):
+                self.summary.setText(
+                    "Choose a key in each field to complete the combination."
+                )
+                self.use.setEnabled(False)
+                return
         if selected:
             try:
                 value = canonical_binding(

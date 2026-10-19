@@ -117,7 +117,7 @@ class InputHub:
         self.injected_until = {
             k: expiry for k, expiry in self.injected_until.items() if expiry > now
         }
-        name = name.lower()
+        name = "space" if name == " " else name.lower()
         if name in {"ctrl", "ctrl_l", "shift", "shift_l"}:
             base = name.removesuffix("_l")
             self.injected_until[base] = now + 0.25
@@ -136,6 +136,8 @@ class InputHub:
                 or getattr(canonical, "char", None)
                 or name
             )
+        if name == " ":
+            name = "space"
         if (
             (injected or sys.platform == "linux")
             and name
@@ -169,7 +171,9 @@ class InputHub:
         # name or character. Keep the original symbolic name in that case.
         name = getattr(key, "name", None) or getattr(key, "char", None) or raw
         if name:
-            name = name.lower()
+            # Backends/remappers can report Space as a literal character.
+            # Match the symbolic name used by the picker and focused Qt input.
+            name = "space" if name == " " else name.lower()
             for mod in MODIFIERS:
                 if name in (mod + "_l", mod + "_r"):
                     name = mod

@@ -75,7 +75,7 @@ def check_virtual_controller(window):
 
 def check_binding_picker(window):
     from PySide6.QtCore import QTimer
-    from PySide6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication, QDialog
     from thumbtalk_picker import BindingPicker
     from thumbtalk_chat import BindingMatcher
 
@@ -109,10 +109,19 @@ def check_binding_picker(window):
     assert picker.value == "key:ctrl+f8"
     picker.reject()
     assert window.bindings["record"] == "mouse:middle", "Cancel changed binding"
+    picker = BindingPicker("record", dict(window.bindings, record="key:f8"), window)
+    picker.tabs.setCurrentWidget(picker.combination_page)
+    assert not picker.use.isEnabled(), "A combination needs both keys"
+    for combo, key in zip(picker.combination_keys, ("ctrl", "space")):
+        combo.setCurrentIndex(combo.findData(key))
+    assert picker.value == "key:ctrl+space"
+    assert not picker.buttons["key", "f8"].isChecked()
+    picker.use.click()
+    assert picker.result() == QDialog.Accepted
     window.bindings = previous
     window.button_monitor = BindingMatcher(previous)
     window.button_labels["record"].setText("Keyboard F8")
-    print("Visual mouse picker, keyboard combination and cancel passed.")
+    print("Visual mouse picker, touch-only Ctrl+Space combination and cancel passed.")
 
 
 def check_font_rendering(app):
