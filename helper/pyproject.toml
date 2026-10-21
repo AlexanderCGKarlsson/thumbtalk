@@ -1,6 +1,6 @@
 [project]
 name = "thumbtalk-helper"
-version = "0.8.5"
+version = "0.8.6"
 description = "ThumbTalk: free local multilingual voice-to-chat for World of Warcraft"
 requires-python = ">=3.10,<3.14"
 dependencies = [
@@ -8,7 +8,7 @@ dependencies = [
     "sounddevice>=0.5",
     "numpy>=1.26",
     "packaging>=24",
-    "certifi>=2024.2.2",
+    "certifi>=2026.10.19",
     "faster-whisper>=1.1",
     "sherpa-onnx==1.13.8",
     "sherpa-onnx-core==1.13.8",
